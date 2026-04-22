@@ -690,6 +690,16 @@ function persistLocalState(){
   try{localStorage.setItem('fk_v5_chk',JSON.stringify(checkedMats));}catch(e){}
   try{localStorage.setItem('fk_v5_extra',JSON.stringify(extraMats));}catch(e){}
 }
+function clearLocalUserState(){
+  sessions=[];pacientes=[];actividades=[];compraList=[];checkedMats={};extraMats={};
+  clipboard=null;selectedSessPacs=[];editSessIdx=-1;editPacIdx=-1;curPacIdx=-1;editActIdx=-1;reportSessIdx=-1;
+  setPendingSync(false);
+  ['fk_v5_sess','fk_v5_pacs','fk_v5_acts','fk_v5_compra','fk_v5_chk','fk_v5_extra'].forEach(k=>{
+    try{localStorage.removeItem(k);}catch(e){}
+  });
+  document.getElementById('clipBanner')?.classList.remove('show');
+  document.getElementById('fichaView')?.classList.remove('open');
+}
 const saveSessions=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
 const savePacs=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
 const saveActs=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
@@ -937,8 +947,10 @@ async function saveSupabaseConfig(){
 async function clearSupabaseConfig(){
   localStorage.removeItem('fk_supabase_config');
   SUPABASE_URL='';SUPABASE_ANON_KEY='';SUPABASE_ENABLED=false;supabase=null;authSession=null;
+  clearLocalUserState();
   setSetupMessage('');
   closeSetupOverlay();
+  renderApp();
   await refreshAuthUi();
 }
 function exportBackup(){
@@ -1732,6 +1744,9 @@ logout = async function(){
   await supabase.auth.signOut();
   authSession=null;
   try{localStorage.removeItem('fonokids-cloud-auth');}catch(e){}
+  clearLocalUserState();
+  renderApp();
+  setSyncNote('Sesión cerrada. Los datos locales del usuario se limpiaron de este dispositivo.');
   await refreshAuthUi();
 };
 
