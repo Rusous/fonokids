@@ -248,8 +248,10 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;padding:4px 10px;border-radius:9px;transition:color 0.15s;}
 .nav-item.active{color:var(--coral);}
 .nav-icon{font-size:19px;}
-.user-fab{position:fixed;right:16px;bottom:92px;z-index:90;display:none;align-items:center;gap:9px;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);border-radius:999px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,0.28);font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;}
+.user-fab{position:fixed;right:16px;bottom:92px;z-index:90;display:none;align-items:center;gap:9px;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);border-radius:999px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,0.28);font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;transition:all 0.15s;}
 .user-fab:hover{border-color:var(--teal);color:var(--teal);}
+.user-fab.compact{width:54px;height:54px;padding:0;justify-content:center;gap:0;border-radius:50%;}
+.user-fab.compact #loginBtnLabel{display:none;}
 .user-fab-ico,.user-fab-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .user-fab-ico{background:var(--surface);font-size:15px;}
 .user-fab-avatar{background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:900;border:1px solid rgba(62,207,190,0.28);}
@@ -717,6 +719,7 @@ function renderUserLinkedIcon(){
   const info=getUserDisplay();
   fab.style.display='inline-flex';
   if(logged){
+    fab.classList.add('compact');
     icon.className='user-fab-avatar';
     icon.textContent=info.initial;
     label.textContent='Mi cuenta';
@@ -725,6 +728,7 @@ function renderUserLinkedIcon(){
     cardName.textContent=info.short;
     cardSub.textContent=info.email||'Sesión iniciada';
   }else{
+    fab.classList.remove('compact');
     icon.className='user-fab-ico';
     icon.textContent='👤';
     label.textContent='Iniciar sesión';
