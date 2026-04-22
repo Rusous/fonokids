@@ -1,0 +1,17 @@
+{
+  "name": "FonoKids - Gestión Fonoaudiológica",
+  "short_name": "FonoKids",
+  "description": "Agenda y fichas para fonoaudiólogos",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#12141A",
+  "theme_color": "#E85555",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3022/3022221.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

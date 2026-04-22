@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#E85555">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>FonoKids</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<script src="./app-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --coral:#FF6B6B;--coral-l:#4A1F1F;--coral-d:#FF9090;
+  --teal:#3ECFBE;--teal-l:#0D3530;--teal-d:#7EEAE2;
+  --amber:#FFB830;--amber-l:#3A2800;--amber-d:#FFD580;
+  --purple:#A87FFF;--purple-l:#251A40;
+  --green:#5DD45D;--green-l:#112011;
+  --bg:#12141A;--bg2:#1C1F28;--surface:#23273A;--surface2:#2D3245;
+  --text:#F0F2FF;--muted:#9399B0;--border:#353A52;
+  --r:16px;--rs:10px;
+}
+html,body{height:100%;}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-width:420px;margin:0 auto;padding-bottom:124px;overflow-x:hidden;min-height:100vh;}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,#C43B3B,#A02020);padding:18px 20px 24px;border-radius:0 0 24px 24px;position:relative;overflow:hidden;}
+.header::before{content:'';position:absolute;top:-30px;right:-30px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,0.07);}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
+.app-name{font-family:'Fredoka One',cursive;font-size:24px;color:#fff;letter-spacing:0.5px;}
+.header-date{color:rgba(255,255,255,0.9);font-size:12px;font-weight:700;text-align:right;}
+.header-sub{color:rgba(255,255,255,0.88);font-size:13px;font-weight:700;}
+.header-tools{display:flex;gap:8px;align-items:center;padding:12px 16px 0;flex-wrap:wrap;}
+.tool-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:999px;padding:7px 12px;font-size:11px;font-weight:800;color:var(--text);cursor:pointer;font-family:'Nunito',sans-serif;}
+.tool-btn:hover{border-color:var(--teal);color:var(--teal);}
+.tool-btn.logout{background:var(--coral-l);border-color:var(--coral-l);color:var(--coral-d);}
+.cloud-pill{font-size:10px;font-weight:800;border-radius:999px;padding:6px 10px;border:1.5px solid var(--border);color:var(--muted);background:var(--surface);}
+.cloud-pill.ok{border-color:var(--teal);color:var(--teal-d);background:var(--teal-l);}
+.cloud-pill.warn{border-color:var(--amber);color:var(--amber);background:var(--amber-l);}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:14px 16px 0;}
+.stat-card{background:var(--surface);border-radius:var(--rs);padding:10px 8px;text-align:center;border:1.5px solid var(--border);}
+.stat-num{font-size:20px;font-weight:800;line-height:1;}
+.stat-label{font-size:10px;color:var(--muted);font-weight:700;margin-top:3px;}
+.stat-card.c .stat-num{color:var(--coral);}
+.stat-card.t .stat-num{color:var(--teal);}
+.stat-card.a .stat-num{color:var(--amber);}
+
+/* CALENDAR */
+.section{padding:16px 16px 0;}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.section-title{font-size:15px;font-weight:800;}
+.month-nav{display:flex;align-items:center;gap:8px;}
+.nav-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted);transition:all 0.15s;}
+.nav-btn:hover{border-color:var(--coral);color:var(--coral);}
+.month-label{font-size:13px;font-weight:700;min-width:88px;text-align:center;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.day-h{text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:3px 0;}
+.day-c{aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:12px;font-weight:600;color:var(--text);position:relative;transition:all 0.12s;}
+.day-c:hover{background:var(--surface2);}
+.day-c.om{color:var(--muted);opacity:0.35;}
+.day-c.today{background:var(--coral);color:#fff;font-weight:800;}
+.day-c.hasSess::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--teal);}
+.day-c.today.hasSess::after{background:#fff;}
+.day-c.sel:not(.today){background:var(--surface2);border:2px solid var(--coral);}
+
+/* SESSIONS */
+.sessions-wrap{padding:0 16px 132px;}
+.sessions-hdr{display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px;gap:8px;}
+.date-label{font-size:14px;font-weight:800;flex:1;}
+.add-btn{background:var(--coral);color:#fff;border:none;border-radius:20px;padding:5px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap;transition:opacity 0.15s;}
+.add-btn:hover{opacity:0.85;}
+
+.clip-banner{background:var(--teal-l);border:1.5px solid var(--teal);border-radius:10px;padding:9px 12px;margin:0 16px 10px;display:none;align-items:center;gap:8px;}
+.clip-banner.show{display:flex;}
+.clip-text{flex:1;font-size:12px;font-weight:700;color:var(--teal-d);}
+.clip-sub{font-size:10px;color:var(--teal);display:block;}
+.btn-paste{background:var(--teal);color:#fff;border:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;}
+
+.sess-card{background:var(--surface);border-radius:var(--r);padding:12px 14px;margin-bottom:9px;border:1.5px solid var(--border);transition:all 0.15s;}
+.sess-card:hover{border-color:var(--coral);}
+.sess-card.copied{border-color:var(--teal);background:var(--teal-l);}
+.sess-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.time-badge{background:var(--coral-l);color:var(--coral-d);font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+
+.badge{display:inline-block;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;color:#fff;}
+.b-visual{background:#8A5A00;}.b-audio{background:#1A6B5F;}.b-motor{background:#5B3FA8;}
+.b-lenguaje{background:#2A6E2A;}.b-cognitivo{background:#5B3FA8;}.b-olfativo{background:#7A1F45;}.b-tactil{background:#2A2A7A;}
+
+.pac-chip{display:flex;align-items:center;gap:7px;background:var(--bg2);border-radius:7px;padding:4px 8px;}
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;}
+.pac-name{font-size:12px;font-weight:700;color:var(--text);}
+.pac-age{font-size:10px;color:var(--muted);font-weight:600;}
+
+.card-acts{display:flex;gap:5px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);}
+.card-act-btn{flex:1;border:1.5px solid var(--border);border-radius:7px;padding:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;background:var(--bg2);color:var(--muted);display:flex;align-items:center;justify-content:center;gap:3px;transition:all 0.12s;}
+.card-act-btn:hover{border-color:var(--coral);color:var(--coral);background:var(--coral-l);}
+.status-row{display:flex;gap:6px;margin-top:9px;}
+.status-btn{flex:1;border:1.5px solid var(--border);border-radius:10px;padding:7px 9px;font-size:11px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;background:var(--bg2);color:var(--muted);transition:all 0.12s;}
+.status-btn:hover{border-color:var(--teal);color:var(--teal);}
+.status-btn.pending.active{background:var(--amber-l);border-color:var(--amber);color:var(--amber);}
+.status-btn.done.active{background:var(--teal-l);border-color:var(--teal);color:var(--teal-d);}
+.report-box{margin-top:8px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;}
+.report-lbl{font-size:10px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;}
+.report-txt{font-size:11px;font-weight:600;color:var(--text);line-height:1.5;white-space:pre-wrap;}
+
+.empty-s{text-align:center;padding:24px 16px;}
+.empty-s .ico{font-size:32px;margin-bottom:8px;}
+.empty-s p{font-size:13px;font-weight:600;color:var(--muted);}
+
+/* PACIENTES */
+.topbar{padding:12px 16px;display:flex;gap:8px;}
+.search-inp{flex:1;border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;font-family:'Nunito',sans-serif;background:var(--surface);color:var(--text);outline:none;transition:border 0.15s;}
+.search-inp:focus{border-color:var(--teal);}
+.search-inp::placeholder{color:var(--muted);}
+.add-btn2{background:var(--teal);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap;}
+
+.pat-card{background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);margin:0 16px 9px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.15s;}
+.pat-card:hover{border-color:var(--teal);transform:translateY(-1px);}
+.pat-av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;}
+.pat-info{flex:1;min-width:0;}
+.pat-name{font-size:14px;font-weight:800;color:var(--text);margin-bottom:1px;}
+.pat-meta{font-size:11px;font-weight:600;color:var(--muted);}
+.pat-badges{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;}
+#viewPacientes{padding-bottom:132px;}
+
+/* FICHA */
+.ficha-view{display:none;position:fixed;inset:0;background:var(--bg);z-index:60;max-width:420px;left:50%;transform:translateX(-50%);overflow-y:auto;padding-bottom:40px;}
+.ficha-view.open{display:block;}
+.ficha-hdr{background:linear-gradient(135deg,#1C1F28,#2D3245);padding:18px 18px 22px;position:relative;}
+.back-btn{background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;margin-bottom:14px;display:inline-flex;align-items:center;gap:5px;}
+.ficha-av-wrap{display:flex;align-items:center;gap:14px;}
+.ficha-av{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;flex-shrink:0;}
+.ficha-nm{font-size:20px;font-weight:800;color:var(--text);}
+.ficha-sb{font-size:12px;font-weight:600;color:var(--muted);margin-top:3px;}
+.edit-btn{position:absolute;top:18px;right:18px;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.15);color:var(--text);border-radius:9px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;}
+.fs{padding:14px 16px 0;}
+.fs-title{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+.fb{background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);padding:12px 14px;margin-bottom:10px;}
+.frow{display:flex;gap:8px;margin-bottom:7px;}
+.frow:last-child{margin-bottom:0;}
+.fkey{font-size:11px;font-weight:700;color:var(--muted);width:100px;flex-shrink:0;padding-top:1px;}
+.fval{font-size:12px;font-weight:700;color:var(--text);flex:1;}
+.fstats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;}
+.fst{background:var(--surface);border-radius:var(--rs);padding:10px 8px;text-align:center;border:1.5px solid var(--border);}
+.fst-n{font-size:18px;font-weight:800;}
+.fst-l{font-size:10px;font-weight:700;color:var(--muted);margin-top:2px;}
+.nota-card{background:var(--surface);border-radius:var(--rs);border:1.5px solid var(--border);padding:11px 13px;margin-bottom:7px;}
+.nota-fecha{font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px;}
+.nota-txt{font-size:12px;font-weight:600;color:var(--text);line-height:1.5;}
+.btn-add-nota{width:100%;background:var(--surface2);border:1.5px dashed var(--border);border-radius:9px;padding:9px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-family:'Nunito',sans-serif;margin-top:3px;transition:all 0.12s;}
+.btn-add-nota:hover{border-color:var(--teal);color:var(--teal);}
+.hist-card{background:var(--surface);border-radius:var(--rs);border:1.5px solid var(--border);padding:10px 13px;margin-bottom:7px;}
+.hist-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+.hist-date{font-size:12px;font-weight:800;color:var(--text);}
+.hist-time{font-size:11px;font-weight:700;color:var(--muted);}
+
+/* MATERIALES */
+.tabs{display:flex;padding:0 16px;border-bottom:2px solid var(--border);background:var(--surface);}
+.tab{flex:1;text-align:center;padding:11px 4px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all 0.15s;}
+.tab.active{color:var(--amber);border-bottom-color:var(--amber);}
+.week-nav-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px;}
+.week-lbl{font-size:13px;font-weight:800;color:var(--text);}
+.sum-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 16px 12px;}
+.sum-c{background:var(--surface);border-radius:var(--rs);padding:10px 8px;text-align:center;border:1.5px solid var(--border);}
+.sum-n{font-size:18px;font-weight:800;}
+.sum-l{font-size:10px;font-weight:700;color:var(--muted);margin-top:2px;}
+.mat-block{margin:0 16px 10px;background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);overflow:hidden;}
+.mat-item{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--border);}
+.mat-item:last-child{border-bottom:none;}
+.mat-chk{width:20px;height:20px;border-radius:5px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.12s;}
+.mat-chk.done{background:var(--teal);border-color:var(--teal);}
+.mat-chk.done::after{content:'✓';color:#fff;font-size:11px;font-weight:800;}
+.mat-txt{flex:1;font-size:13px;font-weight:700;color:var(--text);}
+.mat-txt.done{text-decoration:line-through;color:var(--muted);}
+.mat-src{font-size:10px;font-weight:600;color:var(--muted);margin-top:1px;}
+.mat-qty{font-size:10px;font-weight:800;color:var(--amber);background:var(--amber-l);padding:2px 6px;border-radius:10px;}
+.extra-row{display:flex;gap:7px;padding:6px 16px 10px;}
+.extra-inp{flex:1;border:1.5px solid var(--border);border-radius:9px;padding:8px 11px;font-size:12px;font-family:'Nunito',sans-serif;background:var(--surface);color:var(--text);outline:none;transition:border 0.15s;}
+.extra-inp:focus{border-color:var(--amber);}
+.extra-inp::placeholder{color:var(--muted);}
+.btn-extra{background:var(--amber);color:#000;border:none;border-radius:9px;padding:8px 13px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;}
+.compra-item{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:var(--rs);border:1.5px solid var(--border);padding:11px 13px;margin-bottom:7px;}
+.comp-chk{width:20px;height:20px;border-radius:5px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.12s;}
+.comp-chk.done{background:var(--green);border-color:var(--green);}
+.comp-chk.done::after{content:'✓';color:#fff;font-size:11px;font-weight:800;}
+.share-btn{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:11px;font-size:13px;font-weight:800;color:var(--text);cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px;transition:all 0.15s;}
+.share-btn:hover{border-color:var(--amber);color:var(--amber);}
+#matSemana,#matDia,#matCompra{padding-bottom:132px;}
+
+/* MODALS */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:100;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg2);border-radius:24px 24px 0 0;padding:22px 18px 38px;width:100%;max-width:420px;max-height:92vh;overflow-y:auto;border-top:1px solid var(--border);}
+.modal-handle{width:34px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 18px;}
+.modal-title{font-size:17px;font-weight:800;color:var(--text);margin-bottom:3px;}
+.modal-sub{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:16px;}
+.fg{margin-bottom:14px;}
+.fl{font-size:12px;font-weight:800;color:var(--muted);margin-bottom:5px;display:block;}
+.fi{width:100%;border:1.5px solid var(--border);border-radius:9px;padding:9px 12px;font-size:13px;font-weight:600;font-family:'Nunito',sans-serif;background:var(--surface);color:var(--text);outline:none;transition:border 0.15s;}
+.fi:focus{border-color:var(--coral);}
+.fi::placeholder{color:var(--muted);}
+textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.chip-grp{display:flex;flex-wrap:wrap;gap:5px;}
+.chip{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid var(--border);cursor:pointer;background:var(--surface);font-family:'Nunito',sans-serif;color:var(--muted);transition:all 0.12s;}
+.chip.sel{background:var(--coral);border-color:var(--coral);color:#fff;}
+.btn-sv{width:100%;background:var(--coral);color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;margin-top:7px;transition:opacity 0.15s;}
+.btn-sv:hover{opacity:0.88;}
+.btn-sv.teal{background:var(--teal);}
+.btn-can{width:100%;background:transparent;color:var(--muted);border:none;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;}
+.btn-del-p{width:100%;background:var(--coral-l);color:var(--coral);border:1.5px solid var(--coral-l);border-radius:12px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;margin-top:3px;}
+.hint{font-size:10px;color:var(--muted);font-weight:600;margin-top:3px;}
+
+/* PAC SELECTOR */
+.pac-selector{background:var(--surface);border-radius:10px;border:1.5px solid var(--border);max-height:200px;overflow-y:auto;margin-bottom:8px;}
+.pac-sel-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;}
+.pac-sel-item:last-child{border-bottom:none;}
+.pac-sel-item:hover{background:var(--surface2);}
+.pac-sel-item.selected-item{background:var(--teal-l);}
+.psc{width:18px;height:18px;border-radius:5px;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.12s;}
+.psc.on{background:var(--teal);border-color:var(--teal);}
+.psc.on::after{content:'✓';color:#fff;font-size:10px;font-weight:800;}
+.pac-sel-name{font-size:13px;font-weight:700;color:var(--text);}
+.pac-sel-meta{font-size:10px;font-weight:600;color:var(--muted);}
+.no-pacs-msg{padding:16px;text-align:center;font-size:12px;font-weight:600;color:var(--muted);}
+.sel-pac-row{display:flex;align-items:center;gap:8px;background:var(--teal-l);border-radius:8px;padding:7px 10px;border:1px solid rgba(62,207,190,0.2);margin-bottom:5px;}
+.sel-pac-nm{font-size:12px;font-weight:800;color:var(--text);}
+.sel-pac-age{font-size:10px;color:var(--teal);font-weight:600;}
+.btn-rm-p{background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:0;}
+
+/* PASTE CAL */
+.pm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:8px;}
+.pm-dh{text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:2px 0;}
+.pm-d{aspect-ratio:1;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;font-weight:700;color:var(--text);border:1.5px solid transparent;transition:all 0.12s;}
+.pm-d:hover{border-color:var(--coral);}
+.pm-d.om{color:var(--muted);opacity:0.35;}
+.pm-d.td{background:var(--coral);color:#fff;}
+.pm-d.sp{background:var(--teal);color:#fff;}
+
+.nota-ta{width:100%;border:1.5px solid var(--border);border-radius:9px;padding:11px 12px;font-size:13px;font-weight:600;font-family:'Nunito',sans-serif;background:var(--surface);color:var(--text);outline:none;resize:vertical;min-height:90px;line-height:1.6;transition:border 0.15s;}
+.nota-ta:focus{border-color:var(--teal);}
+.nota-ta::placeholder{color:var(--muted);}
+
+/* BOTTOM NAV */
+.nav-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:var(--bg2);border-top:2px solid var(--border);display:flex;justify-content:space-around;padding:7px 0 14px;z-index:50;}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;padding:4px 10px;border-radius:9px;transition:color 0.15s;}
+.nav-item.active{color:var(--coral);}
+.nav-icon{font-size:19px;}
+.view{display:none;}
+.view.active{display:block;}
+
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;opacity:0;transition:all 0.3s;z-index:200;white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+.empty{text-align:center;padding:36px 20px;}
+.empty .ico{font-size:40px;margin-bottom:10px;}
+.empty p{font-size:13px;font-weight:600;color:var(--muted);line-height:1.6;}
+.auth-overlay{display:none;position:fixed;inset:0;background:rgba(18,20,26,0.96);z-index:300;align-items:center;justify-content:center;padding:18px;}
+.auth-overlay.show{display:flex;}
+.auth-card{width:100%;max-width:380px;background:var(--bg2);border:1.5px solid var(--border);border-radius:24px;padding:22px 18px;}
+.auth-title{font-size:22px;font-weight:900;color:var(--text);margin-bottom:4px;}
+.auth-sub{font-size:12px;font-weight:700;color:var(--muted);line-height:1.5;margin-bottom:16px;}
+.auth-msg{font-size:11px;font-weight:700;color:var(--amber);margin-top:10px;min-height:16px;}
+.sync-note{font-size:10px;font-weight:700;color:var(--muted);padding:0 16px 8px;}
+.setup-link{background:none;border:none;color:var(--teal);font-size:11px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;padding:0;margin-top:10px;}
+</style>
+<link rel="manifest" href="./manifest.json">
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top"><span class="app-name">🎙 FonoKids</span><div class="header-date" id="hDate"></div></div>
+  <div class="header-sub" id="hSub">Hola, Fono! 👋</div>
+</div>
+<div class="header-tools">
+  <span class="cloud-pill" id="cloudStatus">Modo local</span>
+  <button class="tool-btn" id="exportBtn" onclick="exportBackup()">Exportar JSON</button>
+  <button class="tool-btn" onclick="openSetupOverlay()">Config nube</button>
+  <button class="tool-btn" id="syncBtn" onclick="manualSync()" style="display:none;">Sincronizar</button>
+  <button class="tool-btn logout" id="logoutBtn" onclick="logout()" style="display:none;">Cerrar sesión</button>
+</div>
+<div class="sync-note" id="syncNote"></div>
+
+<!-- AGENDA -->
+<div id="viewCalendar" class="view active">
+  <div class="stats-row">
+    <div class="stat-card c"><div class="stat-num" id="stMes">0</div><div class="stat-label">Este mes</div></div>
+    <div class="stat-card t"><div class="stat-num" id="stHoy">0</div><div class="stat-label">Hoy</div></div>
+    <div class="stat-card a"><div class="stat-num" id="stPac">0</div><div class="stat-label">Pacientes</div></div>
+  </div>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Calendario</div>
+      <div class="month-nav">
+        <button class="nav-btn" id="prevM">‹</button>
+        <span class="month-label" id="mLabel"></span>
+        <button class="nav-btn" id="nextM">›</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+  <div class="clip-banner" id="clipBanner">
+    <div style="font-size:18px;">📋</div>
+    <div class="clip-text"><span id="clipTxt">Sesión copiada</span><span class="clip-sub" id="clipSub"></span></div>
+    <button class="btn-paste" onclick="openPasteModal()">Pegar →</button>
+    <button style="background:none;border:none;cursor:pointer;color:var(--teal-d);font-size:16px;" onclick="clearClip()">✕</button>
+  </div>
+  <div class="sessions-wrap">
+    <div class="sessions-hdr">
+      <div class="date-label" id="dateLbl"></div>
+      <button class="add-btn" id="openAddBtn">＋ Nueva sesión</button>
+    </div>
+    <div id="sessList"></div>
+  </div>
+</div>
+
+<!-- PACIENTES -->
+<div id="viewPacientes" class="view">
+  <div class="topbar">
+    <input class="search-inp" id="searchPac" placeholder="🔍 Buscar paciente..." oninput="renderPacs()">
+    <button class="add-btn2" onclick="openAddPac()">＋ Nueva ficha</button>
+  </div>
+  <div id="patList"></div>
+</div>
+
+<!-- MATERIALES -->
+<div id="viewMateriales" class="view">
+  <div class="tabs">
+    <div class="tab active" id="tabSemana" onclick="setMatTab('semana')">📅 Semana</div>
+    <div class="tab" id="tabDia" onclick="setMatTab('dia')">📋 Por día</div>
+    <div class="tab" id="tabCompra" onclick="setMatTab('compra')">🛒 Compras</div>
+  </div>
+  <div id="matSemana"></div>
+  <div id="matDia" style="display:none;"></div>
+  <div id="matCompra" style="display:none;"></div>
+</div>
+
+<nav class="nav-bar">
+  <div class="nav-item active" onclick="sw('viewCalendar',this)"><span class="nav-icon">📅</span>Agenda</div>
+  <div class="nav-item" onclick="sw('viewPacientes',this)"><span class="nav-icon">👶</span>Pacientes</div>
+  <div class="nav-item" onclick="sw('viewMateriales',this)"><span class="nav-icon">🛒</span>Materiales</div>
+</nav>
+
+<!-- FICHA DETALLE -->
+<div class="ficha-view" id="fichaView">
+  <div class="ficha-hdr">
+    <button class="back-btn" onclick="closeFicha()">← Volver</button>
+    <button class="edit-btn" onclick="openEditPac()">✏️ Editar</button>
+    <div class="ficha-av-wrap">
+      <div class="ficha-av" id="fichaAv"></div>
+      <div><div class="ficha-nm" id="fichaNm"></div><div class="ficha-sb" id="fichaSb"></div></div>
+    </div>
+  </div>
+  <div class="fs">
+    <div class="fstats" id="fichaStats"></div>
+    <div class="fs-title">Información general</div>
+    <div class="fb" id="fichaInfo"></div>
+    <div id="fichaDiag"></div>
+    <div id="fichaAreas"></div>
+    <div id="fichaObs"></div>
+    <div class="fs-title" style="margin-top:4px;">Notas de evolución</div>
+    <div id="fichaNotas"></div>
+    <button class="btn-add-nota" onclick="openNotaModal()">＋ Agregar nota de evolución</button>
+    <div class="fs-title" style="margin-top:14px;">Historial de sesiones</div>
+    <div id="fichaHist"></div>
+  </div>
+</div>
+
+<!-- SESSION MODAL -->
+<div class="modal-overlay" id="sessModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="sessTitleM">Nueva sesión 🎉</div>
+    <div class="modal-sub" id="sessSubM"></div>
+    <div class="frow2" style="margin-bottom:14px;">
+      <div><label class="fl">Hora inicio</label><input class="fi" id="sInicio" type="time" value="09:00"></div>
+      <div><label class="fl">Hora fin</label><input class="fi" id="sFin" type="time" value="09:45"></div>
+    </div>
+    <div class="fg">
+      <label class="fl">Pacientes <span id="selPacCount" style="color:var(--teal);font-size:11px;"></span></label>
+      <div id="selPacsTop" class="selected-pacs" style="margin-bottom:5px;"></div>
+      <div id="pacSelectorList"></div>
+      <div class="hint" id="selPacHint"></div>
+    </div>
+    <div class="fg">
+      <label class="fl">Área a trabajar</label>
+      <div class="chip-grp" id="sessAreaChips">
+        <button class="chip" onclick="tc(this)">👁 Visual</button>
+        <button class="chip" onclick="tc(this)">👂 Auditivo</button>
+        <button class="chip" onclick="tc(this)">🖐 Motor</button>
+        <button class="chip" onclick="tc(this)">💬 Lenguaje</button>
+        <button class="chip" onclick="tc(this)">🧠 Cognitivo</button>
+        <button class="chip" onclick="tc(this)">👃 Olfativo</button>
+        <button class="chip" onclick="tc(this)">🤲 Táctil</button>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Materiales</label><input class="fi" id="sMats" placeholder="Ej: tarjetas, espejo, burbujas (separar con comas)"></div>
+    <div class="fg"><label class="fl">Notas</label><input class="fi" id="sNotas" placeholder="Objetivos, observaciones..."></div>
+    <button class="btn-sv" onclick="saveSess()">Guardar sesión ✓</button>
+    <button class="btn-can" onclick="closeM('sessModal')">Cancelar</button>
+  </div>
+</div>
+
+<!-- PASTE MODAL -->
+<div class="modal-overlay" id="pasteModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Pegar sesión 📋</div>
+    <div class="modal-sub" id="pasteSub"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <button class="nav-btn" id="pmPrev">‹</button>
+      <span style="font-size:13px;font-weight:700;color:var(--text);" id="pmLbl"></span>
+      <button class="nav-btn" id="pmNext">›</button>
+    </div>
+    <div class="pm-grid" id="pmGrid"></div>
+    <div style="margin-top:12px;padding:9px 12px;background:var(--surface);border-radius:9px;font-size:12px;font-weight:700;color:var(--muted);" id="pasteTgt">Selecciona un día</div>
+    <button class="btn-sv teal" id="btnConfPaste" onclick="confirmPaste()" style="margin-top:10px;" disabled>Pegar aquí ✓</button>
+    <button class="btn-can" onclick="closeM('pasteModal')">Cancelar</button>
+  </div>
+</div>
+
+<!-- PAC MODAL -->
+<div class="modal-overlay" id="pacModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="pacTitleM">Nueva ficha 👶</div>
+    <div class="modal-sub">Datos del paciente</div>
+    <div class="frow2" style="margin-bottom:14px;">
+      <div class="fg" style="margin-bottom:0;"><label class="fl">Nombre</label><input class="fi" id="pNom" placeholder="Martina" type="text"></div>
+      <div class="fg" style="margin-bottom:0;"><label class="fl">Apellido</label><input class="fi" id="pApe" placeholder="González" type="text"></div>
+    </div>
+    <div class="frow2" style="margin-bottom:14px;">
+      <div class="fg" style="margin-bottom:0;"><label class="fl">Fecha de nacimiento</label><input class="fi" id="pFn" type="date"></div>
+      <div class="fg" style="margin-bottom:0;"><label class="fl">RUT (opcional)</label><input class="fi" id="pRut" placeholder="12.345.678-9"></div>
+    </div>
+    <div class="fg"><label class="fl">Diagnóstico / motivo de consulta</label><input class="fi" id="pDiag" placeholder="Ej: Retraso del lenguaje, TEA nivel 1..."></div>
+    <div class="fg">
+      <label class="fl">Áreas a trabajar</label>
+      <div class="chip-grp" id="pAreasC">
+        <button class="chip" onclick="tc(this)">👁 Visual</button>
+        <button class="chip" onclick="tc(this)">👂 Auditivo</button>
+        <button class="chip" onclick="tc(this)">🖐 Motor</button>
+        <button class="chip" onclick="tc(this)">💬 Lenguaje</button>
+        <button class="chip" onclick="tc(this)">🧠 Cognitivo</button>
+        <button class="chip" onclick="tc(this)">👃 Olfativo</button>
+        <button class="chip" onclick="tc(this)">🤲 Táctil</button>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Apoderado</label><input class="fi" id="pApo" placeholder="Nombre del apoderado"></div>
+    <div class="frow2" style="margin-bottom:14px;">
+      <div class="fg" style="margin-bottom:0;"><label class="fl">Teléfono</label><input class="fi" id="pTel" placeholder="+56 9..." type="tel"></div>
+      <div class="fg" style="margin-bottom:0;"><label class="fl">Frecuencia</label>
+        <select class="fi" id="pFrec"><option>1 vez/semana</option><option>2 veces/semana</option><option>3 veces/semana</option><option>Quincenal</option><option>Mensual</option></select>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Observaciones</label><textarea class="fi" id="pObs" placeholder="Hipersensibilidades, alergias, preferencias..."></textarea></div>
+    <button class="btn-sv" onclick="savePac()">Guardar ficha ✓</button>
+    <button class="btn-del-p" id="btnDelPac" style="display:none;" onclick="deletePac()">Eliminar paciente</button>
+    <button class="btn-can" onclick="closeM('pacModal')">Cancelar</button>
+  </div>
+</div>
+
+<!-- NOTA MODAL -->
+<div class="modal-overlay" id="notaModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Nota de evolución 📝</div>
+    <div class="modal-sub" id="notaSub"></div>
+    <div class="fg"><label class="fl">Nota</label><textarea class="nota-ta" id="notaTxt" placeholder="Ej: Logró mantener contacto visual 10s, mejoró discriminación de /p/ vs /b/..."></textarea></div>
+    <button class="btn-sv teal" onclick="saveNota()">Guardar nota ✓</button>
+    <button class="btn-can" onclick="closeM('notaModal')">Cancelar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="reportModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Informe de sesión</div>
+    <div class="modal-sub" id="reportSub"></div>
+    <div class="fg"><label class="fl">Informe</label><textarea class="nota-ta" id="reportTxt" placeholder="Escribe aqui el informe, avances, objetivos trabajados y observaciones de la sesion..."></textarea></div>
+    <button class="btn-sv teal" onclick="saveSessionReport()">Guardar informe ✓</button>
+    <button class="btn-can" onclick="closeM('reportModal')">Cancelar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <div class="auth-title">Inicia sesión</div>
+    <div class="auth-sub">Usa tu correo y contraseña de Supabase para guardar y recuperar toda la información de la app.</div>
+    <div class="fg"><label class="fl">Correo</label><input class="fi" id="authEmail" type="email" placeholder="tu-correo@ejemplo.com"></div>
+    <div class="fg"><label class="fl">Contraseña</label><input class="fi" id="authPassword" type="password" placeholder="••••••••"></div>
+    <button class="btn-sv teal" onclick="login()">Entrar</button>
+    <button class="setup-link" onclick="openSetupOverlay()">Configurar Supabase</button>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<div class="auth-overlay" id="setupOverlay">
+  <div class="auth-card">
+    <div class="auth-title">Configura Supabase</div>
+    <div class="auth-sub">Pega la URL de tu proyecto y la anon key pública. Se guardarán en este dispositivo para que no tengas que editar archivos.</div>
+    <div class="fg"><label class="fl">Project URL</label><input class="fi" id="setupUrl" type="text" placeholder="https://tu-proyecto.supabase.co"></div>
+    <div class="fg"><label class="fl">Anon key</label><textarea class="fi" id="setupAnonKey" placeholder="sb_publishable_..." style="min-height:92px;"></textarea></div>
+    <button class="btn-sv teal" onclick="saveSupabaseConfig()">Guardar configuración</button>
+    <button class="btn-can" onclick="closeSetupOverlay()">Cerrar</button>
+    <button class="setup-link" onclick="clearSupabaseConfig()">Borrar configuración guardada</button>
+    <div class="auth-msg" id="setupMsg"></div>
+  </div>
+</div>
+
+<script>
+const MO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const DL=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const AVC=[['#3A1A1A','#FF9090'],['#0D3530','#3ECFBE'],['#251A40','#A87FFF'],['#112011','#5DD45D'],['#3A2800','#FFB830'],['#3A0F22','#FF7AAE'],['#1A1A3A','#8888FF'],['#1A2A1A','#66DD66']];
+const BM={'👁 Visual':'b-visual','👂 Auditivo':'b-audio','🖐 Motor':'b-motor','💬 Lenguaje':'b-lenguaje','🧠 Cognitivo':'b-cognitivo','👃 Olfativo':'b-olfativo','🤲 Táctil':'b-tactil'};
+const APP_CONFIG=window.APP_CONFIG||{};
+let SUPABASE_URL='';
+let SUPABASE_ANON_KEY='';
+let SUPABASE_ENABLED=false;
+
+let sessions=[],pacientes=[],compraList=[],checkedMats={},extraMats={};
+try{sessions=JSON.parse(localStorage.getItem('fk_v5_sess')||'[]');}catch(e){}
+try{pacientes=JSON.parse(localStorage.getItem('fk_v5_pacs')||'[]');}catch(e){}
+try{compraList=JSON.parse(localStorage.getItem('fk_v5_compra')||'[]');}catch(e){}
+try{checkedMats=JSON.parse(localStorage.getItem('fk_v5_chk')||'{}');}catch(e){}
+try{extraMats=JSON.parse(localStorage.getItem('fk_v5_extra')||'{}');}catch(e){}
+
+let curDate=new Date(),selDate=new Date(),editSessIdx=-1,editPacIdx=-1,curPacIdx=-1;
+let clipboard=null,pmDate=new Date(),pmSelDate=null,selectedSessPacs=[];
+let matTab='semana',weekOff=0,selDayMat=null,reportSessIdx=-1;
+let supabase=null,authSession=null,syncTimer=null,isHydratingRemote=false,authSubscription=null;
+function loadSupabaseConfig(){
+  let stored={};
+  try{stored=JSON.parse(localStorage.getItem('fk_supabase_config')||'{}');}catch(e){}
+  SUPABASE_URL=(stored.supabaseUrl||APP_CONFIG.supabaseUrl||'').trim();
+  SUPABASE_ANON_KEY=(stored.supabaseAnonKey||APP_CONFIG.supabaseAnonKey||'').trim();
+  SUPABASE_ENABLED=!!(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase?.createClient);
+  supabase=SUPABASE_ENABLED?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+}
+loadSupabaseConfig();
+
+function persistLocalState(){
+  try{localStorage.setItem('fk_v5_sess',JSON.stringify(sessions));}catch(e){}
+  try{localStorage.setItem('fk_v5_pacs',JSON.stringify(pacientes));}catch(e){}
+  try{localStorage.setItem('fk_v5_compra',JSON.stringify(compraList));}catch(e){}
+  try{localStorage.setItem('fk_v5_chk',JSON.stringify(checkedMats));}catch(e){}
+  try{localStorage.setItem('fk_v5_extra',JSON.stringify(extraMats));}catch(e){}
+}
+const saveSessions=()=>{persistLocalState();scheduleRemoteSync();};
+const savePacs=()=>{persistLocalState();scheduleRemoteSync();};
+const saveCompra=()=>{persistLocalState();scheduleRemoteSync();};
+const saveChk=()=>{persistLocalState();scheduleRemoteSync();};
+const saveExtra=()=>{persistLocalState();scheduleRemoteSync();};
+const dc=o=>JSON.parse(JSON.stringify(o));
+const dk=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const ini=n=>(n||'?').trim().split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
+const fmtDate=d=>DL[d.getDay()]+', '+d.getDate()+' de '+MO[d.getMonth()];
+const calcEdad=fn=>{if(!fn)return'Edad desc.';const h=new Date(),b=new Date(fn);let y=h.getFullYear()-b.getFullYear();const m=(h.getFullYear()-b.getFullYear())*12+(h.getMonth()-b.getMonth());if(h.getMonth()-b.getMonth()<0||(h.getMonth()===b.getMonth()&&h.getDate()<b.getDate()))y--;return m<24?m+' meses':y+' años';};
+const fmtF=s=>{if(!s)return'';const d=new Date(s+'T12:00:00');return d.getDate()+' de '+MO[d.getMonth()]+' '+d.getFullYear();};
+const uid=p=>p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const norm=s=>(s||'').toString().trim().toLowerCase().replace(/\s+/g,' ');
+const fullName=p=>[p?.nombre,p?.apellido].filter(Boolean).join(' ').trim();
+const patientSnapshot=p=>({id:p.id,nombre:fullName(p),edad:calcEdad(p.fechaNac)});
+const getPatientById=id=>pacientes.find(p=>p.id===id)||null;
+const hasLocalData=()=>!!(pacientes.length||sessions.length||compraList.length||Object.keys(checkedMats).length||Object.keys(extraMats).length);
+const snapshotState=()=>({pacientes:dc(pacientes),sessions:dc(sessions),compra_list:dc(compraList),checked_mats:dc(checkedMats),extra_mats:dc(extraMats)});
+function applyRemoteState(state){
+  isHydratingRemote=true;
+  pacientes=dc(state?.pacientes||[]);
+  sessions=(state?.sessions||[]).map(syncSessionPatients);
+  compraList=dc(state?.compra_list||[]);
+  checkedMats=dc(state?.checked_mats||{});
+  extraMats=dc(state?.extra_mats||{});
+  persistLocalState();
+  isHydratingRemote=false;
+}
+const getSessionPatients=s=>{
+  const live=(s.patientIds||[]).map(getPatientById).filter(Boolean).map(patientSnapshot);
+  if(live.length)return live;
+  return (s.pacientes||[]).map(p=>({id:p.id||null,nombre:p.nombre,edad:p.edad||'Edad desc.'}));
+};
+function syncSessionPatients(s){
+  s.id=s.id||uid('sess');
+  s.patientIds=(s.patientIds||[]).filter(Boolean);
+  s.estado=s.estado==='realizada'?'realizada':'pendiente';
+  s.informe=s.informe||'';
+  s.pacientes=getSessionPatients(s);
+  return s;
+}
+function migrateData(){
+  let changed=false;
+  pacientes=pacientes.map(p=>{
+    if(p.id)return p;
+    changed=true;
+    return {...p,id:uid('pac')};
+  });
+  sessions=sessions.map(s=>{
+    const next={...s};
+    if(!next.id){next.id=uid('sess');changed=true;}
+    if(!Array.isArray(next.patientIds)||!next.patientIds.length){
+      const ids=(next.pacientes||[]).map(sp=>{
+        const sn=norm(sp.nombre);
+        const match=pacientes.find(p=>norm(fullName(p))===sn);
+        return match?.id||null;
+      }).filter(Boolean);
+      if(ids.length){next.patientIds=ids;changed=true;}
+    }
+    syncSessionPatients(next);
+    return next;
+  });
+  if(changed){savePacs();saveSessions();}
+}
+function rangesOverlap(aStart,aEnd,bStart,bEnd){return aStart<bEnd&&bStart<aEnd;}
+function getSessionConflicts(date,start,end,patientIds,ignoreIdx){
+  return sessions.filter((s,idx)=>idx!==ignoreIdx&&s.date===date&&rangesOverlap(start,end,s.inicio,s.fin)&&getSessionPatients(s).some(p=>patientIds.includes(p.id)));
+}
+migrateData();
+
+function setCloudStatus(text,type){
+  const el=document.getElementById('cloudStatus');
+  if(!el)return;
+  el.textContent=text;
+  el.className='cloud-pill'+(type?' '+type:'');
+}
+function setSyncNote(msg){const el=document.getElementById('syncNote');if(el)el.textContent=msg||'';}
+function setAuthMessage(msg){const el=document.getElementById('authMsg');if(el)el.textContent=msg||'';}
+function setSetupMessage(msg){const el=document.getElementById('setupMsg');if(el)el.textContent=msg||'';}
+function showAuthOverlay(show){document.getElementById('authOverlay')?.classList.toggle('show',!!show);}
+function showSetupOverlay(show){
+  document.getElementById('setupOverlay')?.classList.toggle('show',!!show);
+  if(show){
+    document.getElementById('setupUrl').value=SUPABASE_URL||'';
+    document.getElementById('setupAnonKey').value=SUPABASE_ANON_KEY||'';
+    setSetupMessage('');
+  }
+}
+function openSetupOverlay(){showSetupOverlay(true);}
+function closeSetupOverlay(){showSetupOverlay(false);}
+function renderApp(){
+  updateHeader();updateStats();renderCal();renderSessions();
+  if(document.getElementById('viewPacientes')?.classList.contains('active'))renderPacs();
+  if(document.getElementById('viewMateriales')?.classList.contains('active'))setMatTab(matTab);
+}
+async function upsertRemoteState(showToast){
+  if(!SUPABASE_ENABLED||!supabase||!authSession||isHydratingRemote)return false;
+  const payload={user_id:authSession.user.id,...snapshotState(),updated_at:new Date().toISOString()};
+  const {error}=await supabase.from('app_state').upsert(payload);
+  if(error){setSyncNote('Error al sincronizar con Supabase');if(showToast)toast('No se pudo sincronizar');return false;}
+  setSyncNote('Sincronizado con Supabase');
+  if(showToast)toast('☁️ Datos sincronizados');
+  return true;
+}
+function scheduleRemoteSync(){
+  if(!SUPABASE_ENABLED||!authSession||isHydratingRemote)return;
+  clearTimeout(syncTimer);
+  setSyncNote('Cambios pendientes por sincronizar...');
+  syncTimer=setTimeout(()=>{upsertRemoteState(false);},700);
+}
+async function manualSync(){await upsertRemoteState(true);}
+async function loadRemoteState(){
+  if(!SUPABASE_ENABLED||!supabase||!authSession)return;
+  const {data,error}=await supabase.from('app_state').select('pacientes,sessions,compra_list,checked_mats,extra_mats,updated_at').eq('user_id',authSession.user.id).maybeSingle();
+  if(error){setSyncNote('No se pudo cargar la nube');return;}
+  if(data){
+    applyRemoteState(data);
+    setSyncNote(data.updated_at?'Última sincronización: '+new Date(data.updated_at).toLocaleString('es-CL'):'Datos remotos cargados');
+  }else if(hasLocalData()){
+    await upsertRemoteState(false);
+    setSyncNote('Datos locales migrados a Supabase');
+  }
+  renderApp();
+}
+async function login(){
+  if(!SUPABASE_ENABLED||!supabase)return;
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPassword').value;
+  if(!email||!password){setAuthMessage('Ingresa correo y contraseña');return;}
+  setAuthMessage('Ingresando...');
+  const {data,error}=await supabase.auth.signInWithPassword({email,password});
+  if(error){setAuthMessage(error.message||'No se pudo iniciar sesión');return;}
+  authSession=data.session||null;
+  setAuthMessage('');
+  await refreshAuthUi();
+}
+async function logout(){
+  if(!supabase)return;
+  await supabase.auth.signOut();
+}
+async function saveSupabaseConfig(){
+  const url=document.getElementById('setupUrl').value.trim();
+  const key=document.getElementById('setupAnonKey').value.trim();
+  if(!url||!key){setSetupMessage('Completa la URL y la anon key');return;}
+  localStorage.setItem('fk_supabase_config',JSON.stringify({supabaseUrl:url,supabaseAnonKey:key}));
+  loadSupabaseConfig();
+  setSetupMessage('Configuración guardada');
+  closeSetupOverlay();
+  await initAuth();
+}
+async function clearSupabaseConfig(){
+  localStorage.removeItem('fk_supabase_config');
+  SUPABASE_URL='';SUPABASE_ANON_KEY='';SUPABASE_ENABLED=false;supabase=null;authSession=null;
+  setSetupMessage('');
+  closeSetupOverlay();
+  await refreshAuthUi();
+}
+function exportBackup(){
+  const blob=new Blob([JSON.stringify({exported_at:new Date().toISOString(),...snapshotState()},null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='fonokids-backup-'+dk(new Date())+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('📦 Respaldo exportado');
+}
+async function refreshAuthUi(){
+  const logged=!!authSession;
+  document.getElementById('logoutBtn').style.display=SUPABASE_ENABLED&&logged?'inline-flex':'none';
+  document.getElementById('syncBtn').style.display=SUPABASE_ENABLED&&logged?'inline-flex':'none';
+  if(!SUPABASE_ENABLED){
+    setCloudStatus('Modo local','warn');
+    setSyncNote('Agrega tus credenciales en app-config.js para activar Supabase.');
+    showAuthOverlay(false);
+    return;
+  }
+  if(!logged){
+    setCloudStatus('Login requerido','warn');
+    setSyncNote('Inicia sesión para cargar tus datos desde Supabase.');
+    showAuthOverlay(true);
+    return;
+  }
+  setCloudStatus('Supabase conectado','ok');
+  showAuthOverlay(false);
+  await loadRemoteState();
+}
+async function initAuth(){
+  loadSupabaseConfig();
+  if(!SUPABASE_ENABLED){await refreshAuthUi();return;}
+  const {data}=await supabase.auth.getSession();
+  authSession=data.session||null;
+  if(authSubscription?.subscription?.unsubscribe)authSubscription.subscription.unsubscribe();
+  authSubscription=supabase.auth.onAuthStateChange(async(_event,session)=>{
+    authSession=session||null;
+    await refreshAuthUi();
+  });
+  await refreshAuthUi();
+}
+
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+
+function updateHeader(){
+  const n=new Date();
+  document.getElementById('hDate').innerHTML=DS[n.getDay()]+'<br>'+n.getDate()+' '+MO[n.getMonth()].substring(0,3)+' '+n.getFullYear();
+  document.getElementById('hSub').textContent='Hola, Fono! 👋 Aquí está tu semana';
+}
+function updateStats(){
+  const n=new Date(),mo=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
+  document.getElementById('stMes').textContent=sessions.filter(s=>s.date.startsWith(mo)).length;
+  document.getElementById('stHoy').textContent=sessions.filter(s=>s.date===dk(n)).length;
+  document.getElementById('stPac').textContent=pacientes.length;
+}
+
+// ── CALENDAR ──
+function renderCal(){
+  const y=curDate.getFullYear(),m=curDate.getMonth();
+  document.getElementById('mLabel').textContent=MO[m]+' '+y;
+  const first=new Date(y,m,1),last=new Date(y,m+1,0),sd=first.getDay();
+  const sd2=new Set(sessions.map(s=>s.date)),tk=dk(new Date()),sk=dk(selDate);
+  let h='';DS.forEach(d=>{h+=`<div class="day-h">${d}</div>`;});
+  for(let i=0;i<sd;i++){const d=new Date(y,m,1-sd+i);h+=`<div class="day-c om${sd2.has(dk(d))?' hasSess':''}" onclick="selDay(${d.getFullYear()},${d.getMonth()},${d.getDate()})">${d.getDate()}</div>`;}
+  for(let d=1;d<=last.getDate();d++){const dt=new Date(y,m,d),k=dk(dt);const cls=[sd2.has(k)?'hasSess':'',k===tk?'today':k===sk?'sel':''].filter(Boolean).join(' ');h+=`<div class="day-c ${cls}" onclick="selDay(${y},${m},${d})">${d}</div>`;}
+  document.getElementById('calGrid').innerHTML=h;
+}
+function selDay(y,m,d){selDate=new Date(y,m,d);renderCal();renderSessions();}
+
+function renderSessions(){
+  document.getElementById('dateLbl').textContent=fmtDate(selDate);
+  const key=dk(selDate),day=sessions.filter(s=>s.date===key).sort((a,b)=>a.inicio.localeCompare(b.inicio));
+  const list=document.getElementById('sessList');
+  if(!day.length){list.innerHTML=`<div class="empty-s"><div class="ico">📋</div><p>Sin sesiones este día.<br>Pulsa "Nueva sesión" para agregar.</p></div>`;return;}
+  list.innerHTML=day.map(s=>{
+    const idx=sessions.indexOf(s),pac=getSessionPatients(s);
+    const done=s.estado==='realizada';
+    const areas=(s.areas||[]).map(a=>`<span class="badge ${BM[a]||''}">${a}</span>`).join('');
+    const avatars=pac.slice(0,4).map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="av" style="background:${bg};color:${fg};width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;border:2px solid var(--bg2);margin-left:${i>0?'-7px':'0'}">${ini(p.nombre)}</div>`;}).join('');
+    const isCopied=clipboard&&clipboard.srcIdx===idx;
+    return`<div class="sess-card${isCopied?' copied':''}">
+      <div class="sess-hdr">
+        <span class="time-badge">${s.inicio}–${s.fin}</span>
+        <div style="flex:1;display:flex;align-items:center;gap:7px;justify-content:flex-end;">
+          <div style="display:flex;align-items:center;">${avatars}</div>
+          <span style="font-size:11px;font-weight:700;color:var(--muted);">${pac.length} pac.</span>
+        </div>
+      </div>
+      ${pac.length===1?`<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:5px;">${pac[0].nombre} <span style="font-size:11px;color:var(--muted);">(${pac[0].edad})</span></div>`:''}
+      ${pac.length>1?`<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:7px;">${pac.map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="pac-chip"><div class="av" style="background:${bg};color:${fg};width:22px;height:22px;font-size:9px;">${ini(p.nombre)}</div><span class="pac-name">${p.nombre}</span><span class="pac-age">${p.edad}</span></div>`;}).join('')}</div>`:''}
+      ${areas?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px;">${areas}</div>`:''}
+      ${s.materiales?`<div style="font-size:10px;color:var(--muted);font-weight:600;">📦 ${s.materiales.split(',').slice(0,3).map(m=>m.trim()).join(', ')}</div>`:''}
+      <div class="status-row">
+        <button class="status-btn pending ${!done?'active':''}" onclick="markSessionPending(${idx})">Pendiente</button>
+        <button class="status-btn done ${done?'active':''}" onclick="openReportModal(${idx})">${done?'Editar informe':'Realizada'}</button>
+      </div>
+      ${done&&s.informe?`<div class="report-box"><div class="report-lbl">Informe guardado</div><div class="report-txt">${s.informe}</div><button class="card-act-btn" style="margin-top:8px;" onclick="copySessionReport(${idx})">📄 Copiar informe</button></div>`:''}
+      <div class="card-acts">
+        <button class="card-act-btn" onclick="openEditSess(${idx})">✏️ Editar</button>
+        <button class="card-act-btn" onclick="copySess(${idx})">📋 Copiar</button>
+        <button class="card-act-btn" onclick="delSess(${idx})">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── SESSION MODAL ──
+function buildPacSelector(){
+  const top=document.getElementById('selPacsTop');
+  const listEl=document.getElementById('pacSelectorList');
+  const hint=document.getElementById('selPacHint');
+  const countEl=document.getElementById('selPacCount');
+  if(!pacientes.length){
+    top.innerHTML='';
+    listEl.innerHTML=`<div class="no-pacs-msg">⚠️ No hay pacientes registrados.<br>Ve a <strong>Pacientes</strong> y crea una ficha primero.</div>`;
+    hint.textContent='';countEl.textContent='';return;
+  }
+  hint.textContent='Selecciona uno o varios pacientes.';
+  countEl.textContent=selectedSessPacs.length?`(${selectedSessPacs.length} seleccionado${selectedSessPacs.length>1?'s':''})` :'';
+  top.innerHTML=selectedSessPacs.map(i=>{
+    const p=pacientes[i];const[bg,fg]=AVC[i%AVC.length];
+    return`<div class="sel-pac-row"><div class="av" style="background:${bg};color:${fg};width:26px;height:26px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;">${ini(p.nombre+' '+p.apellido)}</div><div style="flex:1;"><div class="sel-pac-nm">${p.nombre} ${p.apellido}</div><div class="sel-pac-age">${calcEdad(p.fechaNac)}</div></div><button class="btn-rm-p" onclick="toggleSelPac(${i})">✕</button></div>`;
+  }).join('');
+  const wrap=document.createElement('div');wrap.className='pac-selector';
+  pacientes.forEach((p,i)=>{
+    const isSel=selectedSessPacs.includes(i);
+    const[bg,fg]=AVC[i%AVC.length];
+    const item=document.createElement('div');
+    item.className='pac-sel-item'+(isSel?' selected-item':'');
+    item.innerHTML=`<div class="psc${isSel?' on':''}" id="psc${i}"></div><div class="av" style="background:${bg};color:${fg};width:28px;height:28px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ini(p.nombre+' '+p.apellido)}</div><div><div class="pac-sel-name">${p.nombre} ${p.apellido}</div><div class="pac-sel-meta">${calcEdad(p.fechaNac)}${p.diag?' · '+p.diag:''}</div></div>`;
+    item.onclick=()=>toggleSelPac(i);
+    wrap.appendChild(item);
+  });
+  listEl.innerHTML='';listEl.appendChild(wrap);
+}
+function toggleSelPac(i){
+  const idx=selectedSessPacs.indexOf(i);
+  if(idx>=0)selectedSessPacs.splice(idx,1);else selectedSessPacs.push(i);
+  buildPacSelector();
+}
+function openAddSess(){
+  editSessIdx=-1;selectedSessPacs=[];
+  document.getElementById('sessTitleM').textContent='Nueva sesión 🎉';
+  document.getElementById('sessSubM').textContent=fmtDate(selDate);
+  document.getElementById('sInicio').value='09:00';document.getElementById('sFin').value='09:45';
+  document.getElementById('sMats').value='';document.getElementById('sNotas').value='';
+  document.querySelectorAll('#sessAreaChips .chip').forEach(c=>c.classList.remove('sel'));
+  buildPacSelector();document.getElementById('sessModal').classList.add('open');
+}
+function openEditSess(idx){
+  editSessIdx=idx;const s=sessions[idx];
+  selectedSessPacs=(s.patientIds||[]).map(id=>pacientes.findIndex(p=>p.id===id)).filter(i=>i>=0);
+  document.getElementById('sessTitleM').textContent='Editar sesión ✏️';
+  document.getElementById('sessSubM').textContent=fmtDate(selDate);
+  document.getElementById('sInicio').value=s.inicio;document.getElementById('sFin').value=s.fin;
+  document.getElementById('sMats').value=s.materiales||'';document.getElementById('sNotas').value=s.notas||'';
+  document.querySelectorAll('#sessAreaChips .chip').forEach(c=>{c.classList.toggle('sel',(s.areas||[]).includes(c.textContent));});
+  buildPacSelector();document.getElementById('sessModal').classList.add('open');
+}
+function saveSess(){
+  if(!selectedSessPacs.length){toast('⚠️ Selecciona al menos un paciente');return;}
+  const inicio=document.getElementById('sInicio').value,fin=document.getElementById('sFin').value;
+  if(!inicio||!fin){toast('⚠️ Completa el horario');return;}
+  if(inicio>=fin){toast('⚠️ La hora de fin debe ser mayor al inicio');return;}
+  const patientIds=selectedSessPacs.map(i=>pacientes[i]?.id).filter(Boolean);
+  const conflicts=getSessionConflicts(dk(selDate),inicio,fin,patientIds,editSessIdx);
+  if(conflicts.length){
+    const names=[...new Set(conflicts.flatMap(s=>getSessionPatients(s).filter(p=>patientIds.includes(p.id)).map(p=>p.nombre)))];
+    toast('⚠️ Choque horario con: '+names.slice(0,2).join(', '));
+    return;
+  }
+  const areas=[...document.querySelectorAll('#sessAreaChips .chip.sel')].map(c=>c.textContent);
+  const prev=editSessIdx>=0?sessions[editSessIdx]:null;
+  const obj=syncSessionPatients({id:prev?prev.id:uid('sess'),date:dk(selDate),inicio,fin,patientIds,areas,materiales:document.getElementById('sMats').value,notas:document.getElementById('sNotas').value,estado:prev?.estado||'pendiente',informe:prev?.informe||''});
+  if(editSessIdx>=0){sessions[editSessIdx]=obj;toast('✅ Sesión actualizada');}else{sessions.push(obj);toast('✅ Sesión guardada');}
+  saveSessions();closeM('sessModal');renderCal();renderSessions();updateStats();
+}
+function markSessionPending(idx){
+  sessions[idx].estado='pendiente';
+  saveSessions();
+  renderSessions();
+  toast('⏳ Sesion marcada como pendiente');
+}
+function openReportModal(idx){
+  reportSessIdx=idx;
+  const s=sessions[idx];
+  const names=getSessionPatients(s).map(p=>p.nombre).join(', ')||'Sesion';
+  document.getElementById('reportSub').textContent=`${names} · ${s.inicio}–${s.fin}`;
+  document.getElementById('reportTxt').value=s.informe||'';
+  document.getElementById('reportModal').classList.add('open');
+}
+function saveSessionReport(){
+  if(reportSessIdx<0||!sessions[reportSessIdx])return;
+  const txt=document.getElementById('reportTxt').value.trim();
+  if(!txt){alert('Escribe el informe de la sesion');return;}
+  sessions[reportSessIdx].estado='realizada';
+  sessions[reportSessIdx].informe=txt;
+  saveSessions();
+  closeM('reportModal');
+  renderSessions();
+  toast('📝 Informe guardado');
+}
+function fallbackCopyText(txt){
+  const ta=document.createElement('textarea');
+  ta.value=txt;
+  ta.setAttribute('readonly','');
+  ta.style.position='fixed';
+  ta.style.opacity='0';
+  ta.style.pointerEvents='none';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0,ta.value.length);
+  let ok=false;
+  try{ok=document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);
+  return ok;
+}
+function copyText(txt,okMsg){
+  if(navigator.clipboard&&window.isSecureContext){
+    return navigator.clipboard.writeText(txt).then(()=>{toast(okMsg);return true;}).catch(()=>{
+      const ok=fallbackCopyText(txt);
+      if(ok)toast(okMsg);else toast('No se pudo copiar');
+      return ok;
+    });
+  }
+  const ok=fallbackCopyText(txt);
+  if(ok)toast(okMsg);else toast('No se pudo copiar');
+  return Promise.resolve(ok);
+}
+function copySessionReport(idx){
+  const s=sessions[idx];
+  if(!s||!s.informe){toast('No hay informe para copiar');return;}
+  const pacNames=getSessionPatients(s).map(p=>p.nombre).join(', ')||'Sin pacientes';
+  const d=new Date(s.date+'T12:00:00');
+  const fecha=`${DL[d.getDay()]} ${d.getDate()} de ${MO[d.getMonth()]} de ${d.getFullYear()}`;
+  const txt=`Informe de sesión\n\nFecha: ${fecha}\nHora: ${s.inicio}–${s.fin}\nPacientes: ${pacNames}\n\nInforme: ${s.informe}`;
+  copyText(txt,'📋 Informe copiado');
+}
+function delSess(idx){if(confirm('¿Eliminar esta sesión?')){sessions.splice(idx,1);saveSessions();renderCal();renderSessions();updateStats();toast('🗑 Eliminada');}}
+
+// ── CLIPBOARD ──
+function copySess(idx){
+  clipboard={srcIdx:idx,data:dc(sessions[idx])};
+  const s=sessions[idx],pac=getSessionPatients(s);
+  const names=pac.length?pac[0].nombre+(pac.length>1?' y '+(pac.length-1)+' más':''):'sesión';
+  document.getElementById('clipTxt').textContent=`"${names}" copiada`;
+  document.getElementById('clipSub').textContent=`${s.inicio}–${s.fin} · ${pac.length} pac.`;
+  document.getElementById('clipBanner').classList.add('show');
+  renderSessions();toast('📋 Sesión copiada');
+}
+function clearClip(){clipboard=null;document.getElementById('clipBanner').classList.remove('show');renderSessions();}
+function openPasteModal(){
+  if(!clipboard)return;
+  pmDate=new Date();pmSelDate=null;
+  const s=clipboard.data;
+  document.getElementById('pasteSub').textContent=`Pegando: ${getSessionPatients(s).map(p=>p.nombre).join(', ')} (${s.inicio}–${s.fin})`;
+  document.getElementById('btnConfPaste').disabled=true;
+  document.getElementById('pasteTgt').textContent='Selecciona un día';
+  renderPmCal();document.getElementById('pasteModal').classList.add('open');
+}
+function renderPmCal(){
+  const y=pmDate.getFullYear(),m=pmDate.getMonth();
+  document.getElementById('pmLbl').textContent=MO[m]+' '+y;
+  const first=new Date(y,m,1),last=new Date(y,m+1,0),sd=first.getDay();
+  const tk=dk(new Date()),sk=pmSelDate?dk(pmSelDate):'';
+  let h='';DS.forEach(d=>{h+=`<div class="pm-dh">${d}</div>`;});
+  for(let i=0;i<sd;i++){const d=new Date(y,m,1-sd+i);h+=`<div class="pm-d om">${d.getDate()}</div>`;}
+  for(let d=1;d<=last.getDate();d++){const dt=new Date(y,m,d),k=dk(dt);const cls=k===sk?'sp':k===tk?'td':'';h+=`<div class="pm-d ${cls}" onclick="pmSel(${y},${m},${d})">${d}</div>`;}
+  document.getElementById('pmGrid').innerHTML=h;
+}
+function pmSel(y,m,d){pmSelDate=new Date(y,m,d);renderPmCal();document.getElementById('pasteTgt').textContent='📅 '+fmtDate(pmSelDate);document.getElementById('btnConfPaste').disabled=false;}
+function confirmPaste(){
+  if(!clipboard||!pmSelDate)return;
+  const n=syncSessionPatients(dc(clipboard.data));n.id=uid('sess');n.date=dk(pmSelDate);sessions.push(n);saveSessions();
+  closeM('pasteModal');selDate=new Date(pmSelDate);renderCal();renderSessions();updateStats();
+  toast('✅ Sesión pegada en '+fmtDate(pmSelDate));
+}
+document.getElementById('pmPrev').onclick=()=>{pmDate.setMonth(pmDate.getMonth()-1);renderPmCal();};
+document.getElementById('pmNext').onclick=()=>{pmDate.setMonth(pmDate.getMonth()+1);renderPmCal();};
+
+// ── PACIENTES ──
+function renderPacs(){
+  const q=(document.getElementById('searchPac')||{value:''}).value.toLowerCase();
+  let list=pacientes.filter(p=>!q||(p.nombre+' '+p.apellido+' '+(p.diag||'')).toLowerCase().includes(q));
+  const cont=document.getElementById('patList');
+  if(!list.length){
+    cont.innerHTML=`<div class="empty" style="padding:40px 16px;"><div class="ico">👶</div><p>${q?'No se encontraron pacientes.':'Sin fichas aún.<br>¡Crea la primera para poder agendar sesiones!'}</p><button class="add-btn2" style="margin-top:14px;" onclick="openAddPac()">＋ Nueva ficha</button></div>`;return;
+  }
+  cont.innerHTML=list.map(p=>{
+    const idx=pacientes.indexOf(p);const[bg,fg]=AVC[idx%AVC.length];
+    const nsess=getSessPac(p).length;
+    const badges=(p.areas||[]).slice(0,3).map(a=>`<span class="badge ${BM[a]||''}">${a}</span>`).join('');
+    return`<div class="pat-card" onclick="openFicha(${idx})">
+      <div class="pat-av" style="background:${bg};color:${fg};">${ini(p.nombre+' '+p.apellido)}</div>
+      <div class="pat-info">
+        <div class="pat-name">${p.nombre} ${p.apellido}</div>
+        <div class="pat-meta">${calcEdad(p.fechaNac)}${p.diag?' · '+p.diag:''}</div>
+        <div class="pat-badges">${badges}<span style="font-size:10px;font-weight:700;color:var(--teal);margin-left:3px;">${nsess} ses.</span></div>
+      </div>
+      <div style="color:var(--muted);font-size:16px;">›</div>
+    </div>`;
+  }).join('');
+}
+function getSessPac(p){
+  return sessions.filter(s=>(s.patientIds||[]).includes(p.id)||(s.pacientes||[]).some(sp=>norm(sp.nombre)===norm(fullName(p)))).sort((a,b)=>b.date.localeCompare(a.date));
+}
+function openFicha(idx){
+  curPacIdx=idx;const p=pacientes[idx];const[bg,fg]=AVC[idx%AVC.length];
+  const av=document.getElementById('fichaAv');
+  av.style.cssText=`background:${bg};color:${fg};width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;`;
+  av.textContent=ini(p.nombre+' '+p.apellido);
+  document.getElementById('fichaNm').textContent=p.nombre+' '+p.apellido;
+  document.getElementById('fichaSb').textContent=calcEdad(p.fechaNac)+(p.frec?' · '+p.frec:'');
+  renderFicha(idx);document.getElementById('fichaView').classList.add('open');
+}
+function renderFicha(idx){
+  const p=pacientes[idx],sesses=getSessPac(p);
+  const areas=new Set();sesses.forEach(s=>(s.areas||[]).forEach(a=>areas.add(a)));
+  document.getElementById('fichaStats').innerHTML=`
+    <div class="fst"><div class="fst-n" style="color:var(--coral);">${sesses.length}</div><div class="fst-l">Sesiones</div></div>
+    <div class="fst"><div class="fst-n" style="color:var(--teal);">${(p.notas||[]).length}</div><div class="fst-l">Notas</div></div>
+    <div class="fst"><div class="fst-n" style="color:var(--purple);">${areas.size}</div><div class="fst-l">Áreas</div></div>`;
+  document.getElementById('fichaInfo').innerHTML=`
+    ${p.fechaNac?`<div class="frow"><div class="fkey">Nacimiento</div><div class="fval">${fmtF(p.fechaNac)}</div></div>`:''}
+    ${p.rut?`<div class="frow"><div class="fkey">RUT</div><div class="fval">${p.rut}</div></div>`:''}
+    ${p.apo?`<div class="frow"><div class="fkey">Apoderado</div><div class="fval">${p.apo}</div></div>`:''}
+    ${p.tel?`<div class="frow"><div class="fkey">Teléfono</div><div class="fval"><a href="tel:${p.tel}" style="color:var(--teal);text-decoration:none;">${p.tel}</a></div></div>`:''}
+    ${p.frec?`<div class="frow"><div class="fkey">Frecuencia</div><div class="fval">${p.frec}</div></div>`:''}`;
+  document.getElementById('fichaDiag').innerHTML=p.diag?`<div class="fs-title">Diagnóstico</div><div class="fb"><span style="background:var(--purple-l);color:var(--purple);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">${p.diag}</span></div>`:'';
+  document.getElementById('fichaAreas').innerHTML=p.areas&&p.areas.length?`<div class="fs-title">Áreas a trabajar</div><div class="fb" style="display:flex;flex-wrap:wrap;gap:5px;">${p.areas.map(a=>`<span class="badge ${BM[a]||''}">${a}</span>`).join('')}</div>`:'';
+  document.getElementById('fichaObs').innerHTML=p.obs?`<div class="fs-title">Observaciones</div><div class="fb" style="font-size:12px;font-weight:600;color:var(--text);line-height:1.6;">${p.obs}</div>`:'';
+  renderNotas(idx);
+  const hist=document.getElementById('fichaHist');
+  if(!sesses.length){hist.innerHTML=`<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;font-weight:600;">Sin sesiones aún.</div>`;return;}
+  hist.innerHTML=sesses.slice(0,10).map(s=>{
+    const ar=(s.areas||[]).map(a=>`<span class="badge ${BM[a]||''}">${a}</span>`).join('');
+    const d=new Date(s.date+'T12:00:00');const dStr=DS[d.getDay()]+' '+d.getDate()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+    return`<div class="hist-card"><div class="hist-top"><span class="hist-date">${dStr}</span><span class="hist-time">${s.inicio}–${s.fin}</span></div>${ar?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px;">${ar}</div>`:''}${s.notas?`<div style="font-size:11px;color:var(--muted);font-style:italic;border-left:3px solid var(--border);padding-left:7px;">${s.notas}</div>`:''}</div>`;
+  }).join('');
+}
+function renderNotas(idx){
+  const notas=pacientes[idx].notas||[];
+  document.getElementById('fichaNotas').innerHTML=notas.length?notas.slice().reverse().map((n,ri)=>{const i=notas.length-1-ri;return`<div class="nota-card"><div class="nota-fecha">📅 ${n.fecha}</div><div class="nota-txt">${n.texto}</div><div style="display:flex;justify-content:flex-end;margin-top:6px;"><button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;font-weight:700;font-family:'Nunito',sans-serif;" onclick="delNota(${idx},${i})">Eliminar</button></div></div>`;}).join(''):`<div style="text-align:center;padding:14px;color:var(--muted);font-size:12px;font-weight:600;">Sin notas aún.</div>`;
+}
+function closeFicha(){document.getElementById('fichaView').classList.remove('open');renderPacs();}
+function openAddPac(){
+  editPacIdx=-1;
+  document.getElementById('pacTitleM').textContent='Nueva ficha 👶';
+  ['pNom','pApe','pFn','pRut','pDiag','pApo','pTel','pObs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pFrec').value='1 vez/semana';
+  document.querySelectorAll('#pAreasC .chip').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('btnDelPac').style.display='none';
+  document.getElementById('pacModal').classList.add('open');
+}
+function openEditPac(){
+  const p=pacientes[curPacIdx];editPacIdx=curPacIdx;
+  document.getElementById('pacTitleM').textContent='Editar ficha ✏️';
+  document.getElementById('pNom').value=p.nombre||'';document.getElementById('pApe').value=p.apellido||'';
+  document.getElementById('pFn').value=p.fechaNac||'';document.getElementById('pRut').value=p.rut||'';
+  document.getElementById('pDiag').value=p.diag||'';document.getElementById('pApo').value=p.apo||'';
+  document.getElementById('pTel').value=p.tel||'';document.getElementById('pObs').value=p.obs||'';
+  document.getElementById('pFrec').value=p.frec||'1 vez/semana';
+  document.querySelectorAll('#pAreasC .chip').forEach(c=>{c.classList.toggle('sel',(p.areas||[]).includes(c.textContent));});
+  document.getElementById('btnDelPac').style.display='block';
+  document.getElementById('pacModal').classList.add('open');
+}
+function savePac(){
+  const nombre=document.getElementById('pNom').value.trim();if(!nombre){alert('Ingresa el nombre');return;}
+  const areas=[...document.querySelectorAll('#pAreasC .chip.sel')].map(c=>c.textContent);
+  const obj={id:editPacIdx>=0?pacientes[editPacIdx].id:uid('pac'),nombre,apellido:document.getElementById('pApe').value.trim(),fechaNac:document.getElementById('pFn').value,rut:document.getElementById('pRut').value.trim(),diag:document.getElementById('pDiag').value.trim(),apo:document.getElementById('pApo').value.trim(),tel:document.getElementById('pTel').value.trim(),frec:document.getElementById('pFrec').value,obs:document.getElementById('pObs').value.trim(),areas,notas:editPacIdx>=0?(pacientes[editPacIdx].notas||[]):[]};
+  if(editPacIdx>=0){pacientes[editPacIdx]=obj;toast('✅ Ficha actualizada');}else{pacientes.push(obj);toast('✅ Ficha creada');}
+  sessions=sessions.map(syncSessionPatients);
+  saveSessions();
+  savePacs();closeM('pacModal');if(editPacIdx>=0)openFicha(editPacIdx);renderPacs();updateStats();
+}
+function deletePac(){if(confirm('¿Eliminar la ficha de '+pacientes[curPacIdx].nombre+'?')){pacientes.splice(curPacIdx,1);savePacs();closeFicha();toast('🗑 Ficha eliminada');updateStats();}}
+function openNotaModal(){document.getElementById('notaSub').textContent=pacientes[curPacIdx]?.nombre||'';document.getElementById('notaTxt').value='';document.getElementById('notaModal').classList.add('open');}
+function saveNota(){const txt=document.getElementById('notaTxt').value.trim();if(!txt){alert('Escribe una nota');return;}if(!pacientes[curPacIdx].notas)pacientes[curPacIdx].notas=[];const h=new Date();pacientes[curPacIdx].notas.push({fecha:h.getDate()+'/'+(h.getMonth()+1)+'/'+h.getFullYear(),texto:txt});savePacs();closeM('notaModal');renderFicha(curPacIdx);toast('📝 Nota guardada');}
+function delNota(pi,ni){if(confirm('¿Eliminar nota?')){pacientes[pi].notas.splice(ni,1);savePacs();renderNotas(pi);toast('Nota eliminada');}}
+
+// ── MATERIALES ──
+function setMatTab(t){
+  matTab=t;
+  document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+  document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.add('active');
+  ['matSemana','matDia','matCompra'].forEach(id=>document.getElementById(id).style.display='none');
+  if(t==='semana'){document.getElementById('matSemana').style.display='block';renderMatSemana();}
+  else if(t==='dia'){document.getElementById('matDia').style.display='block';renderMatDia();}
+  else{document.getElementById('matCompra').style.display='block';renderMatCompra();}
+}
+const getWkDates=off=>{const t=new Date(),dow=t.getDay(),m=new Date(t);m.setDate(t.getDate()-dow+1+(off*7));return Array.from({length:7},(_,i)=>{const d=new Date(m);d.setDate(m.getDate()+i);return d;});};
+const getMatsDate=dateStr=>{const ss=sessions.filter(s=>s.date===dateStr),r=[];ss.forEach(s=>{const src=getSessionPatients(s).map(p=>p.nombre).join(', ')+' ('+s.inicio+'–'+s.fin+')';(s.materiales||'').split(',').map(m=>m.trim()).filter(Boolean).forEach(m=>r.push({name:m,source:src,date:dateStr}));});return r;};
+const consolid=mats=>{const mp={};mats.forEach(m=>{const k=m.name.toLowerCase();if(!mp[k])mp[k]={name:m.name,count:1,sources:[m.source]};else{mp[k].count++;if(!mp[k].sources.includes(m.source))mp[k].sources.push(m.source);}});return Object.values(mp).sort((a,b)=>a.name.localeCompare(b.name));};
+
+function renderMatSemana(){
+  const dates=getWkDates(weekOff),tk=dk(new Date()),isNow=weekOff===0;
+  const s0=dates[0],s6=dates[6];
+  const sl=s0.getDate()+' '+MO[s0.getMonth()].substring(0,3)+' – '+s6.getDate()+' '+MO[s6.getMonth()].substring(0,3)+' '+s6.getFullYear();
+  const allMats=dates.flatMap(d=>getMatsDate(dk(d)));
+  const cons=consolid(allMats),extra=extraMats['w'+weekOff]||[];
+  const totalSess=dates.reduce((a,d)=>a+sessions.filter(s=>s.date===dk(d)).length,0);
+  const total=cons.length+extra.length;
+  const checked=Object.keys(checkedMats).filter(k=>k.startsWith('w'+weekOff+'_')&&checkedMats[k]).length;
+  let h=`<div class="week-nav-row">
+    <button class="nav-btn" onclick="weekOff--;renderMatSemana()">‹</button>
+    <div style="text-align:center;"><div class="week-lbl">${isNow?'Esta semana':weekOff===1?'Próxima semana':weekOff===-1?'Semana pasada':'Semana'}</div><div style="font-size:10px;font-weight:700;color:var(--muted);margin-top:1px;">${sl}</div></div>
+    <div style="display:flex;gap:5px;align-items:center;">${!isNow?`<button style="background:var(--amber-l);border:1.5px solid var(--amber);border-radius:7px;padding:4px 9px;font-size:11px;font-weight:800;color:var(--amber);cursor:pointer;font-family:'Nunito',sans-serif;" onclick="weekOff=0;renderMatSemana()">Hoy</button>`:''}<button class="nav-btn" onclick="weekOff++;renderMatSemana()">›</button></div>
+  </div>
+  <div class="sum-row">
+    <div class="sum-c"><div class="sum-n" style="color:var(--coral);">${totalSess}</div><div class="sum-l">Sesiones</div></div>
+    <div class="sum-c"><div class="sum-n" style="color:var(--amber);">${total}</div><div class="sum-l">Materiales</div></div>
+    <div class="sum-c"><div class="sum-n" style="color:var(--teal);">${checked}/${total}</div><div class="sum-l">Listos</div></div>
+  </div>`;
+  if(cons.length||extra.length){
+    h+=`<div style="padding:0 16px 6px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;">Todos los materiales</div>`;
+    h+=`<div class="mat-block">`;
+    cons.forEach(m=>{const key='w'+weekOff+'_'+m.name.toLowerCase().replace(/\s+/g,'_');const done=!!checkedMats[key];h+=`<div class="mat-item"><div class="mat-chk${done?' done':''}" onclick="toggleChk('${key}',this)"></div><div style="flex:1;min-width:0;"><div class="mat-txt${done?' done':''}">${m.name}</div><div class="mat-src">${m.sources.slice(0,2).join(' · ')}</div></div>${m.count>1?`<div class="mat-qty">×${m.count}</div>`:''}</div>`;});
+    extra.forEach((e,i)=>{const key='w'+weekOff+'_x_'+i;const done=!!checkedMats[key];h+=`<div class="mat-item"><div class="mat-chk${done?' done':''}" onclick="toggleChk('${key}',this)"></div><div style="flex:1;"><div class="mat-txt${done?' done':''}">${e}</div><div class="mat-src">Extra manual</div></div><button onclick="rmExtra('w${weekOff}',${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;">✕</button></div>`;});
+    h+=`</div>`;
+  }else{h+=`<div class="empty"><div class="ico">📭</div><p>Sin sesiones esta semana.<br>Los materiales aparecen automáticamente cuando hay sesiones agendadas.</p></div>`;}
+  h+=`<div class="extra-row"><input class="extra-inp" id="extInpW" placeholder="+ Agregar material extra..." type="text"><button class="btn-extra" onclick="addExtraW()">＋</button></div>`;
+  h+=`<div style="padding:0 16px 8px;"><button class="share-btn" onclick="shareList()">📤 Compartir lista</button></div>`;
+  document.getElementById('matSemana').innerHTML=h;
+  document.getElementById('extInpW')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addExtraW();}});
+}
+function renderMatDia(){
+  const today=dk(new Date());if(!selDayMat)selDayMat=today;
+  const daysWithSess=[...new Set(sessions.map(s=>s.date))].sort();
+  let h=`<div style="padding:12px 16px 8px;"><div style="font-size:11px;font-weight:800;color:var(--muted);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.5px;">Días con sesiones</div><div style="display:flex;gap:5px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;">`;
+  if(daysWithSess.length){daysWithSess.forEach(d=>{const dt=new Date(d+'T12:00:00'),isSel=d===selDayMat,isTd=d===today;h+=`<div onclick="selDayMat2('${d}')" style="flex-shrink:0;text-align:center;padding:7px 10px;border-radius:10px;cursor:pointer;border:1.5px solid ${isSel?'var(--amber)':isTd?'rgba(255,184,48,0.3)':'var(--border)'};background:${isSel?'var(--amber-l)':'var(--surface)'};min-width:50px;transition:all 0.12s;"><div style="font-size:9px;font-weight:700;color:${isSel?'var(--amber)':'var(--muted)'};">${DS[dt.getDay()]}</div><div style="font-size:14px;font-weight:800;color:${isSel?'var(--amber)':'var(--text)'};">${dt.getDate()}</div><div style="font-size:9px;font-weight:700;color:${isSel?'var(--amber)':'var(--muted)'};">${sessions.filter(s=>s.date===d).length}s</div></div>`;});}
+  else{h+=`<div style="color:var(--muted);font-size:12px;font-weight:600;padding:10px;">Sin sesiones agendadas</div>`;}
+  h+=`</div></div>`;
+  if(selDayMat&&sessions.some(s=>s.date===selDayMat)){
+    const dt=new Date(selDayMat+'T12:00:00');
+    h+=`<div style="padding:0 16px 10px;font-size:14px;font-weight:800;color:var(--text);">${DL[dt.getDay()]} ${dt.getDate()} de ${MO[dt.getMonth()]}${selDayMat===today?' <span style="font-size:10px;background:var(--amber);color:#000;padding:2px 7px;border-radius:20px;margin-left:4px;">HOY</span>':''}</div>`;
+    sessions.filter(s=>s.date===selDayMat).sort((a,b)=>a.inicio.localeCompare(b.inicio)).forEach(s=>{
+      const pac=getSessionPatients(s).map(p=>p.nombre).join(', ');
+      const mats=s.materiales?s.materiales.split(',').map(m=>m.trim()).filter(Boolean):[];
+      h+=`<div class="mat-block"><div style="padding:9px 12px;border-bottom:1px solid var(--border);"><div style="font-size:12px;font-weight:800;color:var(--text);">${pac}</div><div style="font-size:10px;font-weight:700;color:var(--muted);">${s.inicio}–${s.fin}</div></div>${mats.map(m=>{const k='d_'+selDayMat+'_'+m.toLowerCase().replace(/\s+/g,'_');const done=!!checkedMats[k];return`<div class="mat-item"><div class="mat-chk${done?' done':''}" onclick="toggleChk('${k}',this)"></div><div class="mat-txt${done?' done':''}">${m}</div></div>`;}).join('')}${!mats.length?`<div style="padding:9px 12px;font-size:11px;font-weight:600;color:var(--muted);">Sin materiales registrados</div>`:''}</div>`;
+    });
+    h+=`<div class="extra-row"><input class="extra-inp" id="extInpD" placeholder="+ Material extra para este día..." type="text"><button class="btn-extra" onclick="addExtraD()">＋</button></div>`;
+  }
+  document.getElementById('matDia').innerHTML=h;
+  document.getElementById('extInpD')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addExtraD();}});
+}
+function selDayMat2(d){selDayMat=d;renderMatDia();}
+function renderMatCompra(){
+  const allW=getWkDates(0).flatMap(d=>getMatsDate(dk(d)));
+  const missing=consolid(allW).filter(m=>!checkedMats['w0_'+m.name.toLowerCase().replace(/\s+/g,'_')]);
+  const pending=compraList.filter(i=>!i.done),done=compraList.filter(i=>i.done);
+  let h=`<div style="padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:15px;font-weight:800;color:var(--text);">🛒 Lista de compras</span>${done.length?`<button onclick="clearDone()" style="background:var(--coral-l);color:var(--coral);border:1.5px solid var(--coral-l);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;">Limpiar ✓</button>`:''}</div>`;
+  h+=`<div style="padding:0 16px 8px;display:flex;gap:7px;"><input class="extra-inp" id="compraInp" placeholder="Agregar item..." type="text"><button class="btn-extra" style="background:var(--green);" onclick="addCompra()">＋</button></div>`;
+  if(missing.length){h+=`<div style="margin:0 16px 10px;background:var(--purple-l);border:1.5px solid var(--purple);border-radius:10px;padding:10px 12px;"><div style="font-size:11px;font-weight:800;color:var(--purple);margin-bottom:7px;">✨ Sin preparar esta semana</div><div style="display:flex;flex-wrap:wrap;gap:4px;">${missing.slice(0,8).map(m=>`<span onclick="addToCompra('${m.name.replace(/'/g,"\\'")}'')" style="background:var(--surface);color:var(--text);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;cursor:pointer;border:1px solid var(--border);">${m.name} ＋</span>`).join('')}</div></div>`;}
+  h+=`<div style="padding:0 16px;">`;
+  if(!compraList.length){h+=`<div class="empty" style="padding:24px 0;"><div class="ico">🛒</div><p>Lista vacía. Agrega items o úsalos desde los materiales sin preparar.</p></div>`;}
+  else{pending.forEach(item=>{const i=compraList.indexOf(item);h+=`<div class="compra-item"><div class="comp-chk" onclick="toggleComp(${i},this)"></div><div style="flex:1;font-size:13px;font-weight:700;color:var(--text);">${item.name}</div><button onclick="delComp(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;">✕</button></div>`;});if(done.length){h+=`<div style="font-size:10px;font-weight:800;color:var(--muted);margin:8px 0 5px;text-transform:uppercase;">Comprado</div>`;done.forEach(item=>{const i=compraList.indexOf(item);h+=`<div class="compra-item" style="opacity:0.45;"><div class="comp-chk done" onclick="toggleComp(${i},this)"></div><div style="flex:1;font-size:13px;font-weight:700;text-decoration:line-through;color:var(--muted);">${item.name}</div><button onclick="delComp(${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;">✕</button></div>`;});}}
+  h+=`</div><div style="padding:0 16px;"><button class="share-btn" onclick="shareCompra()">📤 Compartir lista</button></div>`;
+  document.getElementById('matCompra').innerHTML=h;
+  document.getElementById('compraInp')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addCompra();}});
+}
+function toggleChk(key,el){checkedMats[key]=!checkedMats[key];el.classList.toggle('done',checkedMats[key]);const txt=el.nextElementSibling?.querySelector?.('.mat-txt')||el.parentElement?.querySelector?.('.mat-txt');if(txt)txt.classList.toggle('done',checkedMats[key]);saveChk();if(matTab==='semana')renderMatSemana();}
+function addExtraW(){const v=document.getElementById('extInpW')?.value.trim();if(!v)return;const k='w'+weekOff;if(!extraMats[k])extraMats[k]=[];extraMats[k].push(v);saveExtra();renderMatSemana();toast('✅ Extra agregado');}
+function addExtraD(){const v=document.getElementById('extInpD')?.value.trim();if(!v||!selDayMat)return;const k='d'+selDayMat;if(!extraMats[k])extraMats[k]=[];extraMats[k].push(v);saveExtra();renderMatDia();}
+function rmExtra(k,i){if(!extraMats[k])return;extraMats[k].splice(i,1);saveExtra();if(matTab==='semana')renderMatSemana();else renderMatDia();}
+function addCompra(){const v=document.getElementById('compraInp')?.value.trim();if(!v)return;compraList.push({name:v,done:false});saveCompra();renderMatCompra();}
+function addToCompra(n){if(compraList.some(i=>i.name.toLowerCase()===n.toLowerCase()))return toast('Ya está en la lista');compraList.push({name:n,done:false});saveCompra();renderMatCompra();toast('✅ Agregado');}
+function toggleComp(i){compraList[i].done=!compraList[i].done;saveCompra();renderMatCompra();}
+function delComp(i){compraList.splice(i,1);saveCompra();renderMatCompra();}
+function clearDone(){compraList=compraList.filter(i=>!i.done);saveCompra();renderMatCompra();}
+function shareList(){const dates=getWkDates(weekOff);const mats=dates.flatMap(d=>getMatsDate(dk(d)));const cons=consolid(mats);if(!cons.length)return toast('No hay materiales');const txt='📦 Materiales FonoKids\n\n'+cons.map(m=>`• ${m.name}${m.count>1?' (×'+m.count+')':''}`).join('\n');if(navigator.share)navigator.share({title:'Materiales',text:txt}).catch(()=>{});else navigator.clipboard.writeText(txt).then(()=>toast('📋 Copiado')).catch(()=>{});}
+function shareCompra(){if(!compraList.length)return toast('Lista vacía');const txt='🛒 Compras FonoKids\n\n'+compraList.filter(i=>!i.done).map(i=>`☐ ${i.name}`).join('\n');if(navigator.share)navigator.share({title:'Compras',text:txt}).catch(()=>{});else copyText(txt,'📋 Copiado');}
+
+// ── UTILS ──
+function tc(el){el.classList.toggle('sel');}
+function closeM(id){document.getElementById(id).classList.remove('open');if(id==='reportModal')reportSessIdx=-1;}
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeM(o.id);}));
+document.getElementById('prevM').onclick=()=>{curDate.setMonth(curDate.getMonth()-1);renderCal();};
+document.getElementById('nextM').onclick=()=>{curDate.setMonth(curDate.getMonth()+1);renderCal();};
+document.getElementById('openAddBtn').onclick=openAddSess;
+function sw(id,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');el.classList.add('active');
+  if(id==='viewPacientes')renderPacs();
+  if(id==='viewMateriales')setMatTab('semana');
+}
+
+// ── SEED ──
+function seed(){
+  if(SUPABASE_ENABLED)return;
+  if(pacientes.length||sessions.length)return;
+  pacientes=[
+    {id:uid('pac'),nombre:'Martina',apellido:'González',fechaNac:'2021-03-15',rut:'',diag:'Retraso del lenguaje expresivo',apo:'Carolina González',tel:'+56 9 8765 4321',frec:'2 veces/semana',obs:'Hipersensibilidad al ruido fuerte. Le gustan las burbujas y los juegos de colores.',areas:['👁 Visual','💬 Lenguaje','🧠 Cognitivo'],notas:[{fecha:'10/04/2025',texto:'Logró nombrar 5 objetos nuevos con apoyo visual. Mejoró tiempo de atención a 8 minutos.'},{fecha:'03/04/2025',texto:'Progreso en imitación vocal. Aún dificultad con /r/ y /l/.'}]},
+    {id:uid('pac'),nombre:'Tomás',apellido:'Herrera',fechaNac:'2020-08-22',rut:'',diag:'TEA nivel 1',apo:'Roberto Herrera',tel:'+56 9 7654 3210',frec:'2 veces/semana',obs:'Le gustan los trenes y los números. Mejor en sesiones estructuradas.',areas:['👂 Auditivo','💬 Lenguaje','🧠 Cognitivo'],notas:[{fecha:'08/04/2025',texto:'Excelente respuesta a discriminación auditiva. Inició uso espontáneo de 2 palabras juntas.'}]},
+    {id:uid('pac'),nombre:'Isidora',apellido:'Rojas',fechaNac:'2022-11-05',rut:'',diag:'Hipotonía oral',apo:'Paula Rojas',tel:'+56 9 6543 2109',frec:'1 vez/semana',obs:'Dificultad para soplar. Responde bien a actividades con agua.',areas:['🖐 Motor','👃 Olfativo','🤲 Táctil'],notas:[]},
+  ];
+  const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const t=new Date(),d=i=>{const x=new Date(t);x.setDate(t.getDate()+i);return x;};
+  sessions=[
+    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id,pacientes[1].id],areas:['👁 Visual','💬 Lenguaje'],materiales:'Tarjetas de colores, espejo, burbujas',notas:'Sesión grupal'}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'10:30',fin:'11:00',patientIds:[pacientes[2].id],areas:['🖐 Motor'],materiales:'Plastilina, tela suave',notas:''}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(2)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id],areas:['💬 Lenguaje'],materiales:'Cuentos ilustrados, espejo',notas:''}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(4)),inicio:'10:00',fin:'10:45',patientIds:[pacientes[1].id],areas:['👂 Auditivo'],materiales:'Instrumentos musicales, auriculares',notas:''}),
+  ];
+  savePacs();saveSessions();
+}
+
+seed();renderApp();initAuth();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('FonoKids PWA: Registrado'))
+        .catch(err => console.log('FonoKids PWA: Error', err));
+    });
+  }
+</script>
+
+</body>
+</html>
