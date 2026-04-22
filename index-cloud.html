@@ -647,6 +647,8 @@ let clipboard=null,pmDate=new Date(),pmSelDate=null,selectedSessPacs=[];
 let matTab='semana',weekOff=0,selDayMat=null,reportSessIdx=-1;
 let editActIdx=-1;
 let supabase=null,authSession=null,syncTimer=null,isHydratingRemote=false,authSubscription=null,supabaseFactory=null;
+const PENDING_SYNC_KEY='fk_cloud_sync_pending';
+let pendingRemoteSync=localStorage.getItem(PENDING_SYNC_KEY)==='1';
 function loadSupabaseConfig(){
   let stored={};
   try{stored=JSON.parse(localStorage.getItem('fk_supabase_config')||'{}');}catch(e){}
@@ -770,6 +772,13 @@ function setCloudStatus(text,type){
   el.textContent=text;
   el.className='cloud-pill'+(type?' '+type:'');
 }
+function setPendingSync(value){
+  pendingRemoteSync=!!value;
+  try{
+    if(pendingRemoteSync)localStorage.setItem(PENDING_SYNC_KEY,'1');
+    else localStorage.removeItem(PENDING_SYNC_KEY);
+  }catch(e){}
+}
 let saveHintTimer=null;
 function showSaveHint(msg='Guardado'){
   if(isHydratingRemote)return;
@@ -850,10 +859,25 @@ function renderApp(){
 }
 async function upsertRemoteState(showToast){
   if(isHydratingRemote||!authSession)return false;
-  if(!(await ensureSupabaseClient())){setSyncNote('No se pudo conectar con Supabase');return false;}
+  if(!navigator.onLine){
+    setPendingSync(true);
+    setSyncNote('Sin internet. Cambios guardados localmente y pendientes de sincronizar.');
+    return false;
+  }
+  if(!(await ensureSupabaseClient())){
+    setPendingSync(true);
+    setSyncNote('No se pudo conectar con Supabase. Cambios pendientes de sincronizar.');
+    return false;
+  }
   const payload={user_id:authSession.user.id,...snapshotState(),updated_at:new Date().toISOString()};
   const {error}=await supabase.from('app_state').upsert(payload);
-  if(error){setSyncNote('Error al guardar en la nube');if(showToast)toast('No se pudo sincronizar');return false;}
+  if(error){
+    setPendingSync(true);
+    setSyncNote('Error al guardar en la nube. Cambios pendientes de sincronizar.');
+    if(showToast)toast('No se pudo sincronizar');
+    return false;
+  }
+  setPendingSync(false);
   setSyncNote('Guardado automatico en la nube');
   if(showToast)toast('☁️ Datos sincronizados');
   return true;
@@ -861,6 +885,11 @@ async function upsertRemoteState(showToast){
 function scheduleRemoteSync(){
   if(isHydratingRemote||!authSession)return;
   clearTimeout(syncTimer);
+  if(!navigator.onLine){
+    setPendingSync(true);
+    setSyncNote('Sin internet. Cambios guardados localmente y pendientes de sincronizar.');
+    return;
+  }
   setSyncNote('Guardando cambios en la nube...');
   syncTimer=setTimeout(()=>{upsertRemoteState(false);},900);
 }
@@ -1640,8 +1669,19 @@ refreshAuthUi = async function(){
     showAuthOverlay(false);
     return;
   }
-  setCloudStatus('Supabase conectado','ok');
-  setSyncNote('Auto guardado en la nube activado.');
+  if(!navigator.onLine){
+    setCloudStatus('Sin internet','warn');
+    setSyncNote(pendingRemoteSync?'Sin internet. Cambios guardados localmente y pendientes de sincronizar.':'Sin internet. Puedes seguir usando la app en este dispositivo.');
+    showAuthOverlay(false);
+    return;
+  }
+  if(pendingRemoteSync){
+    setCloudStatus('Sincronización pendiente','warn');
+    setSyncNote('Hay cambios pendientes de sincronizar.');
+  }else{
+    setCloudStatus('Supabase conectado','ok');
+    setSyncNote('Auto guardado en la nube activado.');
+  }
   showAuthOverlay(false);
 };
 
@@ -1652,7 +1692,10 @@ initAuth = async function(){
   ensureAuthSubscription();
   const {data}=await supabase.auth.getSession();
   authSession=data.session||null;
-  if(authSession)await loadRemoteState();
+  if(authSession){
+    await loadRemoteState();
+    if(pendingRemoteSync&&navigator.onLine)await upsertRemoteState(false);
+  }
   await refreshAuthUi();
 };
 
@@ -1701,6 +1744,23 @@ document.addEventListener('visibilitychange',()=>{
 window.addEventListener('pagehide',()=>{
   if(authSession&&!isHydratingRemote){
     upsertRemoteState(false);
+  }
+});
+
+window.addEventListener('online',async()=>{
+  if(authSession&&pendingRemoteSync){
+    setSyncNote('Internet volvió. Sincronizando cambios pendientes...');
+    await upsertRemoteState(false);
+  }else{
+    await refreshAuthUi();
+  }
+});
+
+window.addEventListener('offline',()=>{
+  if(authSession){
+    setPendingSync(true);
+    setCloudStatus('Sin internet','warn');
+    setSyncNote('Sin internet. Cambios guardados localmente y pendientes de sincronizar.');
   }
 });
 
