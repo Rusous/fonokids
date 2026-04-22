@@ -536,16 +536,35 @@ try{extraMats=JSON.parse(localStorage.getItem('fk_v5_extra')||'{}');}catch(e){}
 let curDate=new Date(),selDate=new Date(),editSessIdx=-1,editPacIdx=-1,curPacIdx=-1;
 let clipboard=null,pmDate=new Date(),pmSelDate=null,selectedSessPacs=[];
 let matTab='semana',weekOff=0,selDayMat=null,reportSessIdx=-1;
-let supabase=null,authSession=null,syncTimer=null,isHydratingRemote=false,authSubscription=null;
+let supabase=null,authSession=null,syncTimer=null,isHydratingRemote=false,authSubscription=null,supabaseFactory=null;
 function loadSupabaseConfig(){
   let stored={};
   try{stored=JSON.parse(localStorage.getItem('fk_supabase_config')||'{}');}catch(e){}
   SUPABASE_URL=(stored.supabaseUrl||APP_CONFIG.supabaseUrl||'').trim();
   SUPABASE_ANON_KEY=(stored.supabaseAnonKey||APP_CONFIG.supabaseAnonKey||'').trim();
-  SUPABASE_ENABLED=!!(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase?.createClient);
-  try{supabase=SUPABASE_ENABLED?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;}catch(e){SUPABASE_ENABLED=false;supabase=null;}
+  SUPABASE_ENABLED=!!(SUPABASE_URL&&SUPABASE_ANON_KEY);
+  supabase=null;
 }
 loadSupabaseConfig();
+async function ensureSupabaseReady(){
+  if(!SUPABASE_ENABLED)return false;
+  if(supabase)return true;
+  try{
+    if(!supabaseFactory){
+      if(window.supabase?.createClient)supabaseFactory=window.supabase.createClient;
+      else{
+        const mod=await import('https://esm.sh/@supabase/supabase-js@2');
+        supabaseFactory=mod.createClient;
+      }
+    }
+    supabase=supabaseFactory(SUPABASE_URL,SUPABASE_ANON_KEY);
+    return true;
+  }catch(e){
+    supabase=null;
+    console.error('Supabase init error', e);
+    return false;
+  }
+}
 
 function persistLocalState(){
   try{localStorage.setItem('fk_v5_sess',JSON.stringify(sessions));}catch(e){}
@@ -1263,6 +1282,99 @@ saveSupabaseConfig = async function(){
   localStorage.setItem('fk_supabase_config',JSON.stringify({supabaseUrl:url,supabaseAnonKey:key}));
   loadSupabaseConfig();
   setSetupMessage(SUPABASE_ENABLED?'Configuración guardada.':'Configuración guardada, pero no se pudo inicializar Supabase.');
+  closeSetupOverlay();
+  await initAuth();
+};
+
+async function ensureSupabaseClient(){
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY)return false;
+  if(supabase)return true;
+  try{
+    if(window.supabase?.createClient){
+      supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+      SUPABASE_ENABLED=true;
+      return true;
+    }
+    const mod=await import('https://esm.sh/@supabase/supabase-js@2');
+    supabase=mod.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+    SUPABASE_ENABLED=true;
+    return true;
+  }catch(e){
+    console.error('Supabase init error',e);
+    supabase=null;
+    SUPABASE_ENABLED=false;
+    return false;
+  }
+}
+
+refreshAuthUi = async function(){
+  const logged=!!authSession;
+  const loginBtn=document.getElementById('loginBtn');
+  const logoutBtn=document.getElementById('logoutBtn');
+  const syncBtn=document.getElementById('syncBtn');
+  if(loginBtn)loginBtn.style.display=(SUPABASE_URL&&SUPABASE_ANON_KEY&&!logged)?'inline-flex':'none';
+  if(logoutBtn)logoutBtn.style.display=logged?'inline-flex':'none';
+  if(syncBtn)syncBtn.style.display=logged?'inline-flex':'none';
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY){
+    setCloudStatus('Modo local','warn');
+    setSyncNote('Configura Supabase si quieres probar la nube en esta versión.');
+    showAuthOverlay(false);
+    return;
+  }
+  const ready=await ensureSupabaseClient();
+  if(!ready){
+    setCloudStatus('Config guardada','warn');
+    setSyncNote('La URL y la key están guardadas, pero no se pudo cargar Supabase.');
+    showAuthOverlay(false);
+    return;
+  }
+  if(!logged){
+    setCloudStatus('Config nube lista','warn');
+    setSyncNote('Supabase configurado. Ya puedes iniciar sesión.');
+    showAuthOverlay(false);
+    return;
+  }
+  setCloudStatus('Supabase conectado','ok');
+  setSyncNote('Sesión iniciada.');
+  showAuthOverlay(false);
+};
+
+initAuth = async function(){
+  loadSupabaseConfig();
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY){authSession=null;await refreshAuthUi();return;}
+  if(!(await ensureSupabaseClient())){authSession=null;await refreshAuthUi();return;}
+  const {data}=await supabase.auth.getSession();
+  authSession=data.session||null;
+  await refreshAuthUi();
+};
+
+login = async function(){
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPassword').value;
+  if(!email||!password){setAuthMessage('Ingresa correo y contraseña');return;}
+  loadSupabaseConfig();
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY){setAuthMessage('Primero configura la URL y la publishable key');return;}
+  if(!(await ensureSupabaseClient())){setAuthMessage('Supabase no se pudo inicializar en esta página.');return;}
+  setAuthMessage('Ingresando...');
+  try{
+    const {data,error}=await supabase.auth.signInWithPassword({email,password});
+    if(error){setAuthMessage(error.message||'No se pudo iniciar sesión');return;}
+    authSession=data.session||null;
+    setAuthMessage('Sesión iniciada.');
+    await loadRemoteState();
+    await refreshAuthUi();
+  }catch(e){
+    setAuthMessage(e?.message||'Error inesperado al iniciar sesión');
+  }
+};
+
+saveSupabaseConfig = async function(){
+  const url=document.getElementById('setupUrl').value.trim();
+  const key=document.getElementById('setupAnonKey').value.trim();
+  if(!url||!key){setSetupMessage('Completa la URL y la anon key');return;}
+  localStorage.setItem('fk_supabase_config',JSON.stringify({supabaseUrl:url,supabaseAnonKey:key}));
+  loadSupabaseConfig();
+  setSetupMessage('Configuración guardada.');
   closeSetupOverlay();
   await initAuth();
 };
