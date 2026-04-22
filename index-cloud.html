@@ -557,6 +557,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
       <div id="actSelectorList"></div>
       <div class="hint">Puedes seleccionar varias actividades. Sus áreas y materiales se combinan automáticamente.</div>
     </div>
+    <div class="fg"><label class="fl">Dirección</label><input class="fi" id="sDir" placeholder="Ej: Av. Siempre Viva 123, Ñuñoa"></div>
     <div class="fg"><label class="fl">Materiales</label><input class="fi" id="sMats" placeholder="Ej: tarjetas, espejo, burbujas (separar con comas)"></div>
     <div class="fg"><label class="fl">Notas</label><input class="fi" id="sNotas" placeholder="Objetivos, observaciones..."></div>
     <button class="btn-sv" onclick="saveSess()">Guardar sesión ✓</button>
@@ -824,6 +825,7 @@ function syncSessionPatients(s){
   s.patientIds=(s.patientIds||[]).filter(Boolean);
   s.estado=s.estado==='realizada'?'realizada':'pendiente';
   s.informe=s.informe||'';
+  s.direccion=(s.direccion||'').trim();
   const legacyIds=(Array.isArray(s.activityIds)?s.activityIds:[s.activityId].filter(Boolean)).filter(Boolean);
   const legacyNames=(Array.isArray(s.activityNames)?s.activityNames:[s.activityName].filter(Boolean)).filter(Boolean);
   s.activityIds=[...new Set(legacyIds)];
@@ -1106,6 +1108,7 @@ function renderSessions(){
       ${pac.length>1?`<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:7px;">${pac.map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="pac-chip"><div class="av" style="background:${bg};color:${fg};width:22px;height:22px;font-size:9px;">${ini(p.nombre)}</div><span class="pac-name">${p.nombre}</span><span class="pac-age">${p.edad}</span></div>`;}).join('')}</div>`:''}
       ${activityNames.length?`<div style="font-size:10px;font-weight:800;color:var(--amber);margin-bottom:6px;">🧩 ${activityNames.join(' · ')}</div>`:''}
       ${areas?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px;">${areas}</div>`:''}
+      ${s.direccion?`<div style="font-size:10px;color:var(--teal-d);font-weight:700;margin-bottom:5px;">📍 ${s.direccion}</div>`:''}
       ${s.materiales?`<div style="font-size:10px;color:var(--muted);font-weight:600;">📦 ${s.materiales.split(',').slice(0,3).map(m=>m.trim()).join(', ')}</div>`:''}
       <div class="status-row">
         <button class="status-btn pending ${!done?'active':''}" onclick="markSessionPending(${idx})">Pendiente</button>
@@ -1191,7 +1194,7 @@ function openAddSess(){
   document.getElementById('sessTitleM').textContent='Nueva sesión 🎉';
   document.getElementById('sessSubM').textContent=fmtDate(selDate);
   document.getElementById('sInicio').value='09:00';document.getElementById('sFin').value='09:45';
-  document.getElementById('sMats').value='';document.getElementById('sNotas').value='';
+  document.getElementById('sDir').value='';document.getElementById('sMats').value='';document.getElementById('sNotas').value='';
   renderActivitySelector();
   document.querySelectorAll('#sessAreaChips .chip').forEach(c=>c.classList.remove('sel'));
   buildPacSelector();document.getElementById('sessModal').classList.add('open');
@@ -1203,7 +1206,7 @@ function openEditSess(idx){
   document.getElementById('sessTitleM').textContent='Editar sesión ✏️';
   document.getElementById('sessSubM').textContent=fmtDate(selDate);
   document.getElementById('sInicio').value=s.inicio;document.getElementById('sFin').value=s.fin;
-  document.getElementById('sMats').value=s.materiales||'';document.getElementById('sNotas').value=s.notas||'';
+  document.getElementById('sDir').value=s.direccion||'';document.getElementById('sMats').value=s.materiales||'';document.getElementById('sNotas').value=s.notas||'';
   renderActivitySelector();
   document.querySelectorAll('#sessAreaChips .chip').forEach(c=>{c.classList.toggle('sel',(s.areas||[]).includes(c.textContent));});
   buildPacSelector();document.getElementById('sessModal').classList.add('open');
@@ -1224,7 +1227,7 @@ function saveSess(){
   const prev=editSessIdx>=0?sessions[editSessIdx]:null;
   const activityIds=[...selectedSessActs];
   const activityNames=activityIds.map(id=>actividades.find(a=>a.id===id)?.nombre).filter(Boolean);
-  const obj=syncSessionPatients({id:prev?prev.id:uid('sess'),date:dk(selDate),inicio,fin,patientIds,activityIds,activityNames,activityId:activityIds[0]||'',activityName:activityNames.join(', '),areas,materiales:document.getElementById('sMats').value,notas:document.getElementById('sNotas').value,estado:prev?.estado||'pendiente',informe:prev?.informe||''});
+  const obj=syncSessionPatients({id:prev?prev.id:uid('sess'),date:dk(selDate),inicio,fin,patientIds,activityIds,activityNames,activityId:activityIds[0]||'',activityName:activityNames.join(', '),areas,direccion:document.getElementById('sDir').value.trim(),materiales:document.getElementById('sMats').value,notas:document.getElementById('sNotas').value,estado:prev?.estado||'pendiente',informe:prev?.informe||''});
   if(editSessIdx>=0){sessions[editSessIdx]=obj;toast('✅ Sesión actualizada');}else{sessions.push(obj);toast('✅ Sesión guardada');}
   saveSessions();closeM('sessModal');renderCal();renderSessions();updateStats();
 }
@@ -1287,9 +1290,10 @@ function copySessionReport(idx){
   const pacNames=getSessionPatients(s).map(p=>p.nombre).join(', ')||'Sin pacientes';
   const activityNames=(Array.isArray(s.activityNames)&&s.activityNames.length?s.activityNames:(s.activityName?[s.activityName]:[])).filter(Boolean);
   const activityLabel=activityNames.length?activityNames.join(', '):'Sin actividad';
+  const direccion=s.direccion||'Sin dirección';
   const d=new Date(s.date+'T12:00:00');
   const fecha=`${DL[d.getDay()]} ${d.getDate()} de ${MO[d.getMonth()]} de ${d.getFullYear()}`;
-  const txt=`Informe de sesión\n\nFecha: ${fecha}\nHora: ${s.inicio}–${s.fin}\nPacientes: ${pacNames}\nActividades: ${activityLabel}\n\nInforme: ${s.informe}`;
+  const txt=`Informe de sesión\n\nFecha: ${fecha}\nHora: ${s.inicio}–${s.fin}\nPacientes: ${pacNames}\nActividades: ${activityLabel}\nDirección: ${direccion}\n\nInforme: ${s.informe}`;
   copyText(txt,'📋 Informe copiado');
 }
 function escapeHtml(txt=''){
@@ -1935,10 +1939,10 @@ function seed(){
   const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   const t=new Date(),d=i=>{const x=new Date(t);x.setDate(t.getDate()+i);return x;};
   sessions=[
-    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id,pacientes[1].id],activityIds:[actividades[1].id],activityNames:[actividades[1].nombre],activityId:actividades[1].id,activityName:actividades[1].nombre,areas:['👁 Visual','💬 Lenguaje'],materiales:'Tarjetas de colores, espejo, burbujas',notas:'Sesión grupal'}),
-    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'10:30',fin:'11:00',patientIds:[pacientes[2].id],activityIds:[actividades[2].id],activityNames:[actividades[2].nombre],activityId:actividades[2].id,activityName:actividades[2].nombre,areas:['🖐 Motor'],materiales:'Plastilina, tela suave',notas:''}),
-    syncSessionPatients({id:uid('sess'),date:fmt(d(2)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id],activityIds:[actividades[0].id,actividades[1].id],activityNames:[actividades[0].nombre,actividades[1].nombre],activityId:actividades[0].id,activityName:actividades[0].nombre+', '+actividades[1].nombre,areas:['💬 Lenguaje'],materiales:'Cuentos ilustrados, espejo',notas:''}),
-    syncSessionPatients({id:uid('sess'),date:fmt(d(4)),inicio:'10:00',fin:'10:45',patientIds:[pacientes[1].id],activityIds:[actividades[1].id],activityNames:[actividades[1].nombre],activityId:actividades[1].id,activityName:actividades[1].nombre,areas:['👂 Auditivo'],materiales:'Instrumentos musicales, auriculares',notas:''}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id,pacientes[1].id],activityIds:[actividades[1].id],activityNames:[actividades[1].nombre],activityId:actividades[1].id,activityName:actividades[1].nombre,areas:['👁 Visual','💬 Lenguaje'],direccion:'Centro FonoKids · Sala 1',materiales:'Tarjetas de colores, espejo, burbujas',notas:'Sesión grupal'}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'10:30',fin:'11:00',patientIds:[pacientes[2].id],activityIds:[actividades[2].id],activityNames:[actividades[2].nombre],activityId:actividades[2].id,activityName:actividades[2].nombre,areas:['🖐 Motor'],direccion:'Domicilio paciente · Ñuñoa',materiales:'Plastilina, tela suave',notas:''}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(2)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id],activityIds:[actividades[0].id,actividades[1].id],activityNames:[actividades[0].nombre,actividades[1].nombre],activityId:actividades[0].id,activityName:actividades[0].nombre+', '+actividades[1].nombre,areas:['💬 Lenguaje'],direccion:'Centro FonoKids · Box 3',materiales:'Cuentos ilustrados, espejo',notas:''}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(4)),inicio:'10:00',fin:'10:45',patientIds:[pacientes[1].id],activityIds:[actividades[1].id],activityNames:[actividades[1].nombre],activityId:actividades[1].id,activityName:actividades[1].nombre,areas:['👂 Auditivo'],direccion:'Colegio San Lucas · Aula PIE',materiales:'Instrumentos musicales, auriculares',notas:''}),
   ];
   saveActs();savePacs();saveSessions();
 }
