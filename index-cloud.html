@@ -1667,9 +1667,10 @@ refreshAuthUi = async function(){
   if(syncBtn)syncBtn.style.display=logged?'inline-flex':'none';
   renderUserLinkedIcon();
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY){
-    setCloudStatus('Modo local','warn');
-    setSyncNote('Configura Supabase si quieres probar la nube en esta versión.');
+    setCloudStatus('Config requerida','warn');
+    setSyncNote('Debes configurar Supabase e iniciar sesión para usar esta app.');
     showAuthOverlay(false);
+    showSetupOverlay(true);
     closeCloudPanel();
     return;
   }
@@ -1681,14 +1682,16 @@ refreshAuthUi = async function(){
     return;
   }
   if(!logged){
-    setCloudStatus('Config nube lista','warn');
-    setSyncNote('Supabase configurado. Ya puedes iniciar sesión.');
-    showAuthOverlay(false);
+    setCloudStatus('Inicio requerido','warn');
+    setSyncNote('Inicia sesión para acceder a la app.');
+    showSetupOverlay(false);
+    showAuthOverlay(true);
     return;
   }
   if(!navigator.onLine){
     setCloudStatus('Sin internet','warn');
     setSyncNote(pendingRemoteSync?'Sin internet. Cambios guardados localmente y pendientes de sincronizar.':'Sin internet. Puedes seguir usando la app en este dispositivo.');
+    showSetupOverlay(false);
     showAuthOverlay(false);
     return;
   }
@@ -1699,19 +1702,35 @@ refreshAuthUi = async function(){
     setCloudStatus('Supabase conectado','ok');
     setSyncNote('Auto guardado en la nube activado.');
   }
+  showSetupOverlay(false);
   showAuthOverlay(false);
 };
 
 initAuth = async function(){
   loadSupabaseConfig();
-  if(!SUPABASE_URL||!SUPABASE_ANON_KEY){authSession=null;await refreshAuthUi();return;}
-  if(!(await ensureSupabaseClient())){authSession=null;await refreshAuthUi();return;}
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY){
+    authSession=null;
+    clearLocalUserState();
+    renderApp();
+    await refreshAuthUi();
+    return;
+  }
+  if(!(await ensureSupabaseClient())){
+    authSession=null;
+    clearLocalUserState();
+    renderApp();
+    await refreshAuthUi();
+    return;
+  }
   ensureAuthSubscription();
   const {data}=await supabase.auth.getSession();
   authSession=data.session||null;
   if(authSession){
     await loadRemoteState();
     if(pendingRemoteSync&&navigator.onLine)await upsertRemoteState(false);
+  }else{
+    clearLocalUserState();
+    renderApp();
   }
   await refreshAuthUi();
 };
@@ -1819,7 +1838,7 @@ function seed(){
   saveActs();savePacs();saveSessions();
 }
 
-showAuthOverlay(false);showSetupOverlay(false);seed();renderApp();initAuth();
+showAuthOverlay(true);showSetupOverlay(false);initAuth();
 </script>
 
 <script>
