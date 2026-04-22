@@ -285,6 +285,57 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 .view{display:none;}
 .view.active{display:block;}
 
+@media (max-width: 520px){
+  body{max-width:100%;}
+  .ficha-view{
+    max-width:none;
+    left:0;
+    right:0;
+    transform:none;
+    width:100%;
+  }
+  .ficha-hdr{
+    padding:16px 14px 18px;
+  }
+  .ficha-av-wrap{
+    align-items:flex-start;
+    gap:12px;
+    padding-right:92px;
+  }
+  .ficha-nm{
+    font-size:18px;
+    line-height:1.15;
+  }
+  .ficha-sb{
+    line-height:1.35;
+  }
+  .edit-btn{
+    top:14px;
+    right:14px;
+    padding:6px 10px;
+  }
+  .fs{
+    padding:12px 12px 0;
+  }
+  .fstats{
+    gap:6px;
+  }
+  .frow{
+    flex-direction:column;
+    gap:3px;
+    margin-bottom:10px;
+  }
+  .fkey{
+    width:auto;
+    padding-top:0;
+  }
+  .fval{
+    line-height:1.45;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+}
+
 .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;opacity:0;transition:all 0.3s;z-index:200;white-space:nowrap;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .save-hint{position:fixed;top:14px;right:14px;background:rgba(17,32,17,0.96);border:1px solid rgba(93,212,93,0.45);color:#BDF5BD;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;font-family:'Nunito',sans-serif;opacity:0;transform:translateY(-8px);transition:all 0.2s;z-index:220;pointer-events:none;box-shadow:0 8px 18px rgba(0,0,0,0.2);}
