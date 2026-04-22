@@ -364,7 +364,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 <div class="header">
   <div class="header-top">
     <div class="brand-lockup" aria-label="FonoKids">
-      <img class="brand-logo" src="./header-logo.png" alt="Logo FonoKids">
+<img class="brand-logo" src="./header-logo-256.png" alt="Logo FonoKids">
       <div class="brand-wordmark" aria-hidden="true"><span class="fono">Fono</span><span class="kids">Kids</span></div>
     </div>
     <div class="header-date" id="hDate"></div>
@@ -684,6 +684,9 @@ const DL=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const AVC=[['#3A1A1A','#FF9090'],['#0D3530','#3ECFBE'],['#251A40','#A87FFF'],['#112011','#5DD45D'],['#3A2800','#FFB830'],['#3A0F22','#FF7AAE'],['#1A1A3A','#8888FF'],['#1A2A1A','#66DD66']];
 const BM={'👁 Visual':'b-visual','👂 Auditivo':'b-audio','🖐 Motor':'b-motor','💬 Lenguaje':'b-lenguaje','🧠 Cognitivo':'b-cognitivo','👃 Olfativo':'b-olfativo','🤲 Táctil':'b-tactil'};
 const APP_CONFIG=window.APP_CONFIG||{};
+const AUTH_STORAGE_KEY='fonokids-cloud-auth';
+const REMOTE_SELECT_COLUMNS='pacientes,sessions,actividades,compra_list,checked_mats,extra_mats,updated_at';
+const REMOTE_SELECT_COLUMNS_LEGACY='pacientes,sessions,compra_list,checked_mats,extra_mats,updated_at';
 let SUPABASE_URL='';
 let SUPABASE_ANON_KEY='';
 let SUPABASE_ENABLED=false;
@@ -705,6 +708,7 @@ const PENDING_SYNC_KEY='fk_cloud_sync_pending';
 let pendingRemoteSync=localStorage.getItem(PENDING_SYNC_KEY)==='1';
 let restoredSessionThisLaunch=false;
 let sessionRestoreMessage='';
+let remoteActivitiesColumnSupported='unknown';
 function loadSupabaseConfig(){
   let stored={};
   try{stored=JSON.parse(localStorage.getItem('fk_supabase_config')||'{}');}catch(e){}
@@ -716,27 +720,9 @@ function loadSupabaseConfig(){
     authSubscription=null;
   }
   supabase=null;
+  remoteActivitiesColumnSupported='unknown';
 }
 loadSupabaseConfig();
-async function ensureSupabaseReady(){
-  if(!SUPABASE_ENABLED)return false;
-  if(supabase)return true;
-  try{
-    if(!supabaseFactory){
-      if(window.supabase?.createClient)supabaseFactory=window.supabase.createClient;
-      else{
-        const mod=await import('https://esm.sh/@supabase/supabase-js@2');
-        supabaseFactory=mod.createClient;
-      }
-    }
-    supabase=supabaseFactory(SUPABASE_URL,SUPABASE_ANON_KEY);
-    return true;
-  }catch(e){
-    supabase=null;
-    console.error('Supabase init error', e);
-    return false;
-  }
-}
 
 function persistLocalState(){
   try{localStorage.setItem('fk_v5_sess',JSON.stringify(sessions));}catch(e){}
@@ -774,12 +760,26 @@ const fullName=p=>[p?.nombre,p?.apellido].filter(Boolean).join(' ').trim();
 const patientSnapshot=p=>({id:p.id,nombre:fullName(p),edad:calcEdad(p.fechaNac)});
 const getPatientById=id=>pacientes.find(p=>p.id===id)||null;
 const hasLocalData=()=>!!(pacientes.length||actividades.length||sessions.length||compraList.length||Object.keys(checkedMats).length||Object.keys(extraMats).length);
-const snapshotState=()=>({pacientes:dc(pacientes),sessions:dc(sessions),compra_list:dc(compraList),checked_mats:dc(checkedMats),extra_mats:{...dc(extraMats),__activities:dc(actividades)}});
+const snapshotState=({legacyActivitiesFallback=false}={})=>{
+  const extra=dc(extraMats);
+  if(legacyActivitiesFallback)extra.__activities=dc(actividades);
+  return {
+    pacientes:dc(pacientes),
+    sessions:dc(sessions),
+    actividades:dc(actividades),
+    compra_list:dc(compraList),
+    checked_mats:dc(checkedMats),
+    extra_mats:extra
+  };
+};
+const isActivitiesColumnError=error=>/actividades/i.test(error?.message||'');
 function applyRemoteState(state){
   isHydratingRemote=true;
   pacientes=dc(state?.pacientes||[]);
   const rawExtra=dc(state?.extra_mats||{});
-  actividades=dc(state?.actividades||rawExtra.__activities||[]);
+  const remoteActivities=Array.isArray(state?.actividades)?state.actividades:[];
+  const legacyActivities=Array.isArray(rawExtra.__activities)?rawExtra.__activities:[];
+  actividades=dc(remoteActivities.length?remoteActivities:legacyActivities);
   if(rawExtra&&typeof rawExtra==='object')delete rawExtra.__activities;
   sessions=(state?.sessions||[]).map(syncSessionPatients);
   compraList=dc(state?.compra_list||[]);
@@ -925,6 +925,21 @@ function renderApp(){
   if(document.getElementById('viewMateriales')?.classList.contains('active'))setMatTab(matTab);
   renderUserLinkedIcon();
 }
+function buildRemotePayload(forceLegacyActivitiesFallback=false){
+  const snapshot=snapshotState({legacyActivitiesFallback:forceLegacyActivitiesFallback||remoteActivitiesColumnSupported===false});
+  if(forceLegacyActivitiesFallback||remoteActivitiesColumnSupported===false)delete snapshot.actividades;
+  return {user_id:authSession.user.id,...snapshot,updated_at:new Date().toISOString()};
+}
+async function fetchRemoteStateRow(){
+  let result=await supabase.from('app_state').select(REMOTE_SELECT_COLUMNS).eq('user_id',authSession.user.id).maybeSingle();
+  if(!result.error){
+    remoteActivitiesColumnSupported=true;
+    return result;
+  }
+  if(!isActivitiesColumnError(result.error))return result;
+  remoteActivitiesColumnSupported=false;
+  return await supabase.from('app_state').select(REMOTE_SELECT_COLUMNS_LEGACY).eq('user_id',authSession.user.id).maybeSingle();
+}
 async function upsertRemoteState(showToast){
   if(isHydratingRemote||!authSession)return false;
   if(!navigator.onLine){
@@ -937,8 +952,15 @@ async function upsertRemoteState(showToast){
     setSyncNote('No se pudo conectar con Supabase. Cambios pendientes de sincronizar.');
     return false;
   }
-  const payload={user_id:authSession.user.id,...snapshotState(),updated_at:new Date().toISOString()};
-  const {error}=await supabase.from('app_state').upsert(payload);
+  let payload=buildRemotePayload(false);
+  let {error}=await supabase.from('app_state').upsert(payload);
+  if(error&&isActivitiesColumnError(error)){
+    remoteActivitiesColumnSupported=false;
+    payload=buildRemotePayload(true);
+    ({error}=await supabase.from('app_state').upsert(payload));
+  }else if(!error&&remoteActivitiesColumnSupported==='unknown'){
+    remoteActivitiesColumnSupported=true;
+  }
   if(error){
     setPendingSync(true);
     setSyncNote('Error al guardar en la nube. Cambios pendientes de sincronizar.');
@@ -967,7 +989,7 @@ async function manualSync(){await upsertRemoteState(true);}
 async function loadRemoteState(){
   if(!authSession)return;
   if(!(await ensureSupabaseClient())){setSyncNote('No se pudo cargar la nube');return;}
-  const {data,error}=await supabase.from('app_state').select('pacientes,sessions,compra_list,checked_mats,extra_mats,updated_at').eq('user_id',authSession.user.id).maybeSingle();
+  const {data,error}=await fetchRemoteStateRow();
   if(error){setSyncNote('No se pudo cargar la nube');return;}
   if(data){
     applyRemoteState(data);
@@ -978,35 +1000,11 @@ async function loadRemoteState(){
   }
   renderApp();
 }
-async function login(){
-  if(!SUPABASE_ENABLED||!supabase)return;
-  const email=document.getElementById('authEmail').value.trim();
-  const password=document.getElementById('authPassword').value;
-  if(!email||!password){setAuthMessage('Ingresa correo y contraseña');return;}
-  setAuthMessage('Ingresando...');
-  const {data,error}=await supabase.auth.signInWithPassword({email,password});
-  if(error){setAuthMessage(error.message||'No se pudo iniciar sesión');return;}
-  authSession=data.session||null;
-  setAuthMessage('');
-  await refreshAuthUi();
-}
-async function logout(){
-  if(!supabase)return;
-  await supabase.auth.signOut();
-}
-async function saveSupabaseConfig(){
-  const url=document.getElementById('setupUrl').value.trim();
-  const key=document.getElementById('setupAnonKey').value.trim();
-  if(!url||!key){setSetupMessage('Completa la URL y la anon key');return;}
-  localStorage.setItem('fk_supabase_config',JSON.stringify({supabaseUrl:url,supabaseAnonKey:key}));
-  loadSupabaseConfig();
-  setSetupMessage('Configuración guardada, pero la nube quedó desactivada temporalmente para mantener estable la app local.');
-  closeSetupOverlay();
-  await refreshAuthUi();
-}
 async function clearSupabaseConfig(){
   localStorage.removeItem('fk_supabase_config');
+  try{localStorage.removeItem(AUTH_STORAGE_KEY);}catch(e){}
   SUPABASE_URL='';SUPABASE_ANON_KEY='';SUPABASE_ENABLED=false;supabase=null;authSession=null;
+  remoteActivitiesColumnSupported='unknown';
   clearLocalUserState();
   setSetupMessage('');
   closeSetupOverlay();
@@ -1024,21 +1022,6 @@ function exportBackup(){
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   toast('📦 Respaldo exportado');
-}
-async function refreshAuthUi(){
-  const logged=!!authSession;
-  const loginBtn=document.getElementById('loginBtn');
-  const logoutBtn=document.getElementById('logoutBtn');
-  const syncBtn=document.getElementById('syncBtn');
-  if(loginBtn)loginBtn.style.display='none';
-  if(logoutBtn)logoutBtn.style.display='none';
-  if(syncBtn)syncBtn.style.display='none';
-  setCloudStatus('Modo local','warn');
-  setSyncNote('La app quedó restaurada en modo local para evitar bloqueos. Seguimos con Supabase cuando la interfaz esté estable.');
-  showAuthOverlay(false);
-}
-async function initAuth(){
-  await refreshAuthUi();
 }
 
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
@@ -1605,88 +1588,7 @@ function sw(id,el){
   if(id==='viewMateriales')setMatTab('semana');
 }
 
-// ── SEED ──
-async function saveSupabaseConfig(){
-  const url=document.getElementById('setupUrl').value.trim();
-  const key=document.getElementById('setupAnonKey').value.trim();
-  if(!url||!key){setSetupMessage('Completa la URL y la anon key');return;}
-  localStorage.setItem('fk_supabase_config',JSON.stringify({supabaseUrl:url,supabaseAnonKey:key}));
-  loadSupabaseConfig();
-  setSetupMessage('Configuración guardada.');
-  closeSetupOverlay();
-  await initAuth();
-}
-async function refreshAuthUi(){
-  const logged=!!authSession;
-  const loginBtn=document.getElementById('loginBtn');
-  const logoutBtn=document.getElementById('logoutBtn');
-  const syncBtn=document.getElementById('syncBtn');
-  if(loginBtn)loginBtn.style.display=(SUPABASE_URL&&SUPABASE_ANON_KEY)?'inline-flex':'none';
-  if(logoutBtn)logoutBtn.style.display=SUPABASE_ENABLED&&logged?'inline-flex':'none';
-  if(syncBtn)syncBtn.style.display=SUPABASE_ENABLED&&logged?'inline-flex':'none';
-  renderUserLinkedIcon();
-  if(!SUPABASE_URL||!SUPABASE_ANON_KEY){
-    setCloudStatus('Modo local','warn');
-    setSyncNote('Configura Supabase si quieres probar la nube en esta versión.');
-    showAuthOverlay(false);
-    return;
-  }
-  if(!SUPABASE_ENABLED){
-    setCloudStatus('Config guardada','warn');
-    setSyncNote('La URL y la key están guardadas, pero no se pudo inicializar Supabase. La app sigue local.');
-    showAuthOverlay(false);
-    return;
-  }
-  if(!logged){
-    setCloudStatus('Config nube lista','warn');
-    setSyncNote('Supabase configurado. Ya puedes iniciar sesión.');
-    showAuthOverlay(false);
-    return;
-  }
-  setCloudStatus('Supabase conectado','ok');
-  setSyncNote('Sesión iniciada.');
-  showAuthOverlay(false);
-}
-async function initAuth(){
-  loadSupabaseConfig();
-  if(!SUPABASE_ENABLED){authSession=null;await refreshAuthUi();return;}
-  const {data}=await supabase.auth.getSession();
-  authSession=data.session||null;
-  await refreshAuthUi();
-}
-
-// Override old handlers with safer cloud versions.
-login = async function(){
-  const email=document.getElementById('authEmail').value.trim();
-  const password=document.getElementById('authPassword').value;
-  if(!email||!password){setAuthMessage('Ingresa correo y contraseña');return;}
-  loadSupabaseConfig();
-  if(!SUPABASE_URL||!SUPABASE_ANON_KEY){setAuthMessage('Primero configura la URL y la publishable key');return;}
-  if(!SUPABASE_ENABLED||!supabase){setAuthMessage('Supabase no se pudo inicializar en esta página.');return;}
-  setAuthMessage('Ingresando...');
-  try{
-    const {data,error}=await supabase.auth.signInWithPassword({email,password});
-    if(error){setAuthMessage(error.message||'No se pudo iniciar sesión');return;}
-    authSession=data.session||null;
-    setAuthMessage('Sesión iniciada.');
-    await loadRemoteState();
-    await refreshAuthUi();
-  }catch(e){
-    setAuthMessage(e?.message||'Error inesperado al iniciar sesión');
-  }
-};
-
-saveSupabaseConfig = async function(){
-  const url=document.getElementById('setupUrl').value.trim();
-  const key=document.getElementById('setupAnonKey').value.trim();
-  if(!url||!key){setSetupMessage('Completa la URL y la anon key');return;}
-  localStorage.setItem('fk_supabase_config',JSON.stringify({supabaseUrl:url,supabaseAnonKey:key}));
-  loadSupabaseConfig();
-  setSetupMessage(SUPABASE_ENABLED?'Configuración guardada.':'Configuración guardada, pero no se pudo inicializar Supabase.');
-  closeSetupOverlay();
-  await initAuth();
-};
-
+// ── CLOUD / AUTH ──
 async function ensureSupabaseClient(){
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY)return false;
   if(supabase)return true;
@@ -1697,7 +1599,7 @@ async function ensureSupabaseClient(){
           persistSession:true,
           autoRefreshToken:true,
           detectSessionInUrl:true,
-          storageKey:'fonokids-cloud-auth'
+          storageKey:AUTH_STORAGE_KEY
         }
       });
       SUPABASE_ENABLED=true;
@@ -1709,7 +1611,7 @@ async function ensureSupabaseClient(){
         persistSession:true,
         autoRefreshToken:true,
         detectSessionInUrl:true,
-        storageKey:'fonokids-cloud-auth'
+        storageKey:AUTH_STORAGE_KEY
       }
     });
     SUPABASE_ENABLED=true;
@@ -1725,17 +1627,24 @@ async function ensureSupabaseClient(){
 function ensureAuthSubscription(){
   if(!supabase||authSubscription)return;
   const {data}=supabase.auth.onAuthStateChange(async(event,session)=>{
+    const prevUserId=authSession?.user?.id||null;
     if(event==='SIGNED_OUT'){
       authSession=null;
+      sessionRestoreMessage='';
+      clearLocalUserState();
+      renderApp();
     }else if(session){
       authSession=session;
+      sessionRestoreMessage='Sesión activa en este dispositivo';
+      if(prevUserId&&prevUserId!==session.user.id){
+        await loadRemoteState();
+      }
     }
     await refreshAuthUi();
   });
   authSubscription=data?.subscription||null;
 }
-
-refreshAuthUi = async function(){
+async function refreshAuthUi(){
   const logged=!!authSession;
   const loginBtn=document.getElementById('loginBtn');
   const logoutBtn=document.getElementById('logoutBtn');
@@ -1782,9 +1691,20 @@ refreshAuthUi = async function(){
   }
   showSetupOverlay(false);
   showAuthOverlay(false);
-};
-
-initAuth = async function(){
+}
+async function saveSupabaseConfig(){
+  const url=document.getElementById('setupUrl').value.trim();
+  const key=document.getElementById('setupAnonKey').value.trim();
+  if(!url||!key){setSetupMessage('Completa la URL y la anon key');return;}
+  localStorage.setItem('fk_supabase_config',JSON.stringify({supabaseUrl:url,supabaseAnonKey:key}));
+  showSaveHint('Configuración guardada');
+  remoteActivitiesColumnSupported='unknown';
+  loadSupabaseConfig();
+  setSetupMessage('Configuración guardada.');
+  closeSetupOverlay();
+  await initAuth();
+}
+async function initAuth(){
   loadSupabaseConfig();
   restoredSessionThisLaunch=false;
   sessionRestoreMessage='';
@@ -1815,9 +1735,8 @@ initAuth = async function(){
     renderApp();
   }
   await refreshAuthUi();
-};
-
-login = async function(){
+}
+async function login(){
   const email=document.getElementById('authEmail').value.trim();
   const password=document.getElementById('authPassword').value;
   if(!email||!password){setAuthMessage('Ingresa correo y contraseña');return;}
@@ -1838,9 +1757,8 @@ login = async function(){
   }catch(e){
     setAuthMessage(e?.message||'Error inesperado al iniciar sesión');
   }
-};
-
-logout = async function(){
+}
+async function logout(){
   if(syncTimer){
     clearTimeout(syncTimer);
     syncTimer=null;
@@ -1851,12 +1769,13 @@ logout = async function(){
   if(!supabase)return;
   await supabase.auth.signOut();
   authSession=null;
-  try{localStorage.removeItem('fonokids-cloud-auth');}catch(e){}
+  sessionRestoreMessage='';
+  try{localStorage.removeItem(AUTH_STORAGE_KEY);}catch(e){}
   clearLocalUserState();
   renderApp();
   setSyncNote('Sesión cerrada. Los datos locales del usuario se limpiaron de este dispositivo.');
   await refreshAuthUi();
-};
+}
 
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden'&&authSession&&!isHydratingRemote){
@@ -1886,18 +1805,6 @@ window.addEventListener('offline',()=>{
     setSyncNote('Sin internet. Cambios guardados localmente y pendientes de sincronizar.');
   }
 });
-
-saveSupabaseConfig = async function(){
-  const url=document.getElementById('setupUrl').value.trim();
-  const key=document.getElementById('setupAnonKey').value.trim();
-  if(!url||!key){setSetupMessage('Completa la URL y la anon key');return;}
-  localStorage.setItem('fk_supabase_config',JSON.stringify({supabaseUrl:url,supabaseAnonKey:key}));
-  showSaveHint('Configuración guardada');
-  loadSupabaseConfig();
-  setSetupMessage('Configuración guardada.');
-  closeSetupOverlay();
-  await initAuth();
-};
 
 function seed(){
   if(pacientes.length||sessions.length)return;

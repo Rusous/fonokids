@@ -29,6 +29,8 @@ function buildSummary(row: any) {
   const done = weeklySessions.filter((session: any) => session?.estado === 'realizada')
   const pending = weeklySessions.filter((session: any) => session?.estado !== 'realizada')
   const patients = [...new Set(weeklySessions.flatMap((session: any) => (session?.pacientes || []).map((p: any) => p?.nombre).filter(Boolean)))]
+  const activities = [...new Set(weeklySessions.map((session: any) => session?.activityName).filter(Boolean))]
+  const materials = [...new Set(weeklySessions.flatMap((session: any) => String(session?.materiales || '').split(',').map((item: string) => item.trim()).filter(Boolean)))]
 
   const lines = [
     'Resumen semanal FonoKids',
@@ -38,11 +40,15 @@ function buildSummary(row: any) {
     `Sesiones realizadas: ${done.length}`,
     `Sesiones pendientes: ${pending.length}`,
     `Pacientes atendidos: ${patients.join(', ') || 'Sin pacientes'}`,
+    `Actividades usadas: ${activities.join(', ') || 'Sin actividades'}`,
+    `Materiales registrados: ${materials.join(', ') || 'Sin materiales'}`,
     '',
     'Detalle de sesiones:',
     ...weeklySessions.map((session: any) => {
       const names = (session?.pacientes || []).map((p: any) => p?.nombre).filter(Boolean).join(', ') || 'Sin pacientes'
-      return `- ${session.date} ${session.inicio}-${session.fin} | ${names} | ${session.estado || 'pendiente'}${session?.informe ? ` | Informe: ${session.informe}` : ''}`
+      const activity = session?.activityName ? ` | Actividad: ${session.activityName}` : ''
+      const materialsText = session?.materiales ? ` | Materiales: ${session.materiales}` : ''
+      return `- ${session.date} ${session.inicio}-${session.fin} | ${names}${activity} | ${session.estado || 'pendiente'}${materialsText}${session?.informe ? ` | Informe: ${session.informe}` : ''}`
     }),
   ]
 
@@ -64,7 +70,7 @@ Deno.serve(async (req) => {
 
     const { data: rows, error } = await supabase
       .from('app_state')
-      .select('user_id, sessions')
+      .select('user_id, sessions, actividades')
 
     if (error) throw error
 

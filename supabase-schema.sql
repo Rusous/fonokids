@@ -4,11 +4,15 @@ create table if not exists public.app_state (
   user_id uuid primary key references auth.users(id) on delete cascade,
   pacientes jsonb not null default '[]'::jsonb,
   sessions jsonb not null default '[]'::jsonb,
+  actividades jsonb not null default '[]'::jsonb,
   compra_list jsonb not null default '[]'::jsonb,
   checked_mats jsonb not null default '{}'::jsonb,
   extra_mats jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
+
+alter table public.app_state
+add column if not exists actividades jsonb not null default '[]'::jsonb;
 
 alter table public.app_state enable row level security;
 
