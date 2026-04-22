@@ -269,6 +269,8 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 
 .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;opacity:0;transition:all 0.3s;z-index:200;white-space:nowrap;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.save-hint{position:fixed;top:14px;right:14px;background:rgba(17,32,17,0.96);border:1px solid rgba(93,212,93,0.45);color:#BDF5BD;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;font-family:'Nunito',sans-serif;opacity:0;transform:translateY(-8px);transition:all 0.2s;z-index:220;pointer-events:none;box-shadow:0 8px 18px rgba(0,0,0,0.2);}
+.save-hint.show{opacity:1;transform:translateY(0);}
 
 .empty{text-align:center;padding:36px 20px;}
 .empty .ico{font-size:40px;margin-bottom:10px;}
@@ -524,6 +526,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="save-hint" id="saveHint">Guardado</div>
 
 <div class="auth-overlay" id="authOverlay">
   <div class="auth-card">
@@ -608,11 +611,11 @@ function persistLocalState(){
   try{localStorage.setItem('fk_v5_chk',JSON.stringify(checkedMats));}catch(e){}
   try{localStorage.setItem('fk_v5_extra',JSON.stringify(extraMats));}catch(e){}
 }
-const saveSessions=()=>{persistLocalState();scheduleRemoteSync();};
-const savePacs=()=>{persistLocalState();scheduleRemoteSync();};
-const saveCompra=()=>{persistLocalState();scheduleRemoteSync();};
-const saveChk=()=>{persistLocalState();scheduleRemoteSync();};
-const saveExtra=()=>{persistLocalState();scheduleRemoteSync();};
+const saveSessions=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
+const savePacs=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
+const saveCompra=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
+const saveChk=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
+const saveExtra=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
 const dc=o=>JSON.parse(JSON.stringify(o));
 const dk=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const ini=n=>(n||'?').trim().split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
@@ -683,6 +686,16 @@ function setCloudStatus(text,type){
   if(!el)return;
   el.textContent=text;
   el.className='cloud-pill'+(type?' '+type:'');
+}
+let saveHintTimer=null;
+function showSaveHint(msg='Guardado'){
+  if(isHydratingRemote)return;
+  const el=document.getElementById('saveHint');
+  if(!el)return;
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(saveHintTimer);
+  saveHintTimer=setTimeout(()=>el.classList.remove('show'),1200);
 }
 function setSyncNote(msg){const el=document.getElementById('syncNote');if(el)el.textContent=msg||'';}
 function setAuthMessage(msg){const el=document.getElementById('authMsg');if(el)el.textContent=msg||'';}
@@ -1486,6 +1499,7 @@ saveSupabaseConfig = async function(){
   const key=document.getElementById('setupAnonKey').value.trim();
   if(!url||!key){setSetupMessage('Completa la URL y la anon key');return;}
   localStorage.setItem('fk_supabase_config',JSON.stringify({supabaseUrl:url,supabaseAnonKey:key}));
+  showSaveHint('Configuración guardada');
   loadSupabaseConfig();
   setSetupMessage('Configuración guardada.');
   closeSetupOverlay();
