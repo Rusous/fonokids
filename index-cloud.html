@@ -649,6 +649,8 @@ let editActIdx=-1;
 let supabase=null,authSession=null,syncTimer=null,isHydratingRemote=false,authSubscription=null,supabaseFactory=null;
 const PENDING_SYNC_KEY='fk_cloud_sync_pending';
 let pendingRemoteSync=localStorage.getItem(PENDING_SYNC_KEY)==='1';
+let restoredSessionThisLaunch=false;
+let sessionRestoreMessage='';
 function loadSupabaseConfig(){
   let stored={};
   try{stored=JSON.parse(localStorage.getItem('fk_supabase_config')||'{}');}catch(e){}
@@ -840,7 +842,7 @@ function renderUserLinkedIcon(){
     fab.onclick=openCloudPanel;
     cardAvatar.textContent=info.initial;
     cardName.textContent=info.short;
-    cardSub.textContent=info.email||'Sesión iniciada';
+    cardSub.textContent=sessionRestoreMessage||'Sesión activa en este dispositivo';
   }else{
     fab.classList.remove('compact');
     icon.className='user-fab-ico';
@@ -1700,7 +1702,7 @@ refreshAuthUi = async function(){
     setSyncNote('Hay cambios pendientes de sincronizar.');
   }else{
     setCloudStatus('Supabase conectado','ok');
-    setSyncNote('Auto guardado en la nube activado.');
+    setSyncNote(restoredSessionThisLaunch?'Sesión restaurada en este dispositivo. Auto guardado en la nube activado.':'Auto guardado en la nube activado.');
   }
   showSetupOverlay(false);
   showAuthOverlay(false);
@@ -1708,6 +1710,8 @@ refreshAuthUi = async function(){
 
 initAuth = async function(){
   loadSupabaseConfig();
+  restoredSessionThisLaunch=false;
+  sessionRestoreMessage='';
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY){
     authSession=null;
     clearLocalUserState();
@@ -1726,6 +1730,8 @@ initAuth = async function(){
   const {data}=await supabase.auth.getSession();
   authSession=data.session||null;
   if(authSession){
+    restoredSessionThisLaunch=true;
+    sessionRestoreMessage='Sesión activa en este dispositivo';
     await loadRemoteState();
     if(pendingRemoteSync&&navigator.onLine)await upsertRemoteState(false);
   }else{
@@ -1748,6 +1754,8 @@ login = async function(){
     const {data,error}=await supabase.auth.signInWithPassword({email,password});
     if(error){setAuthMessage(error.message||'No se pudo iniciar sesión');return;}
     authSession=data.session||null;
+    restoredSessionThisLaunch=false;
+    sessionRestoreMessage='Sesión activa en este dispositivo';
     setAuthMessage('Sesión iniciada. El guardado automatico ya está activo.');
     await loadRemoteState();
     await refreshAuthUi();
