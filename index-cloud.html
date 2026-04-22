@@ -670,23 +670,25 @@ function renderApp(){
   if(document.getElementById('viewMateriales')?.classList.contains('active'))setMatTab(matTab);
 }
 async function upsertRemoteState(showToast){
-  if(!SUPABASE_ENABLED||!supabase||!authSession||isHydratingRemote)return false;
+  if(isHydratingRemote||!authSession)return false;
+  if(!(await ensureSupabaseClient())){setSyncNote('No se pudo conectar con Supabase');return false;}
   const payload={user_id:authSession.user.id,...snapshotState(),updated_at:new Date().toISOString()};
   const {error}=await supabase.from('app_state').upsert(payload);
-  if(error){setSyncNote('Error al sincronizar con Supabase');if(showToast)toast('No se pudo sincronizar');return false;}
-  setSyncNote('Sincronizado con Supabase');
+  if(error){setSyncNote('Error al guardar en la nube');if(showToast)toast('No se pudo sincronizar');return false;}
+  setSyncNote('Guardado automatico en la nube');
   if(showToast)toast('☁️ Datos sincronizados');
   return true;
 }
 function scheduleRemoteSync(){
-  if(!SUPABASE_ENABLED||!authSession||isHydratingRemote)return;
+  if(isHydratingRemote||!authSession)return;
   clearTimeout(syncTimer);
-  setSyncNote('Cambios pendientes por sincronizar...');
-  syncTimer=setTimeout(()=>{upsertRemoteState(false);},700);
+  setSyncNote('Guardando cambios en la nube...');
+  syncTimer=setTimeout(()=>{upsertRemoteState(false);},900);
 }
 async function manualSync(){await upsertRemoteState(true);}
 async function loadRemoteState(){
-  if(!SUPABASE_ENABLED||!supabase||!authSession)return;
+  if(!authSession)return;
+  if(!(await ensureSupabaseClient())){setSyncNote('No se pudo cargar la nube');return;}
   const {data,error}=await supabase.from('app_state').select('pacientes,sessions,compra_list,checked_mats,extra_mats,updated_at').eq('user_id',authSession.user.id).maybeSingle();
   if(error){setSyncNote('No se pudo cargar la nube');return;}
   if(data){
@@ -1335,7 +1337,7 @@ refreshAuthUi = async function(){
     return;
   }
   setCloudStatus('Supabase conectado','ok');
-  setSyncNote('Sesión iniciada.');
+  setSyncNote('Auto guardado en la nube activado.');
   showAuthOverlay(false);
 };
 
@@ -1345,6 +1347,7 @@ initAuth = async function(){
   if(!(await ensureSupabaseClient())){authSession=null;await refreshAuthUi();return;}
   const {data}=await supabase.auth.getSession();
   authSession=data.session||null;
+  if(authSession)await loadRemoteState();
   await refreshAuthUi();
 };
 
@@ -1360,13 +1363,39 @@ login = async function(){
     const {data,error}=await supabase.auth.signInWithPassword({email,password});
     if(error){setAuthMessage(error.message||'No se pudo iniciar sesión');return;}
     authSession=data.session||null;
-    setAuthMessage('Sesión iniciada.');
+    setAuthMessage('Sesión iniciada. El guardado automatico ya está activo.');
     await loadRemoteState();
     await refreshAuthUi();
   }catch(e){
     setAuthMessage(e?.message||'Error inesperado al iniciar sesión');
   }
 };
+
+logout = async function(){
+  if(syncTimer){
+    clearTimeout(syncTimer);
+    syncTimer=null;
+  }
+  if(authSession&&!isHydratingRemote){
+    try{await upsertRemoteState(false);}catch(e){}
+  }
+  if(!supabase)return;
+  await supabase.auth.signOut();
+  authSession=null;
+  await refreshAuthUi();
+};
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'&&authSession&&!isHydratingRemote){
+    upsertRemoteState(false);
+  }
+});
+
+window.addEventListener('pagehide',()=>{
+  if(authSession&&!isHydratingRemote){
+    upsertRemoteState(false);
+  }
+});
 
 saveSupabaseConfig = async function(){
   const url=document.getElementById('setupUrl').value.trim();
