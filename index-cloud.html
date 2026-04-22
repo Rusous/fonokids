@@ -127,6 +127,19 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .pat-badges{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;}
 #viewPacientes{padding-bottom:132px;}
 
+/* ACTIVIDADES */
+#viewActividades{padding-bottom:132px;}
+.act-card{background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);margin:0 16px 9px;padding:13px 14px;cursor:pointer;transition:all 0.15s;}
+.act-card:hover{border-color:var(--amber);transform:translateY(-1px);}
+.act-title{font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px;}
+.act-desc{font-size:11px;font-weight:600;color:var(--muted);line-height:1.5;margin-bottom:8px;}
+.act-mats{font-size:10px;font-weight:700;color:var(--amber);margin-top:6px;}
+.act-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.act-actions{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.act-btn{flex:1;border:1.5px solid var(--border);border-radius:8px;padding:7px;font-size:11px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;background:var(--bg2);color:var(--muted);}
+.act-btn:hover{border-color:var(--amber);color:var(--amber);}
+.act-btn.del:hover{border-color:var(--coral);color:var(--coral);}
+
 /* FICHA */
 .ficha-view{display:none;position:fixed;inset:0;background:var(--bg);z-index:60;max-width:420px;left:50%;transform:translateX(-50%);overflow-y:auto;padding-bottom:40px;}
 .ficha-view.open{display:block;}
@@ -343,6 +356,15 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
   <div id="patList"></div>
 </div>
 
+<!-- ACTIVIDADES -->
+<div id="viewActividades" class="view">
+  <div class="topbar">
+    <input class="search-inp" id="searchAct" placeholder="🔍 Buscar actividad..." oninput="renderActs()">
+    <button class="add-btn2" onclick="openAddAct()">＋ Nueva actividad</button>
+  </div>
+  <div id="actList"></div>
+</div>
+
 <!-- MATERIALES -->
 <div id="viewMateriales" class="view">
   <div class="tabs">
@@ -358,6 +380,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 <nav class="nav-bar">
   <div class="nav-item active" onclick="sw('viewCalendar',this)"><span class="nav-icon">📅</span>Agenda</div>
   <div class="nav-item" onclick="sw('viewPacientes',this)"><span class="nav-icon">👶</span>Pacientes</div>
+  <div class="nav-item" onclick="sw('viewActividades',this)"><span class="nav-icon">🧩</span>Actividades</div>
   <div class="nav-item" onclick="sw('viewMateriales',this)"><span class="nav-icon">🛒</span>Materiales</div>
   <div class="nav-item" onclick="openCloudPanel()"><span class="nav-icon">⚙️</span>Ajustes</div>
 </nav>
@@ -445,10 +468,44 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
         <button class="chip" onclick="tc(this)">🤲 Táctil</button>
       </div>
     </div>
+    <div class="fg">
+      <label class="fl">Actividad</label>
+      <select class="fi" id="sActividad" onchange="applySelectedActivityToSession(true)">
+        <option value="">Sin actividad vinculada</option>
+      </select>
+      <div class="hint">Al elegir una actividad, se completan sus áreas y materiales.</div>
+    </div>
     <div class="fg"><label class="fl">Materiales</label><input class="fi" id="sMats" placeholder="Ej: tarjetas, espejo, burbujas (separar con comas)"></div>
     <div class="fg"><label class="fl">Notas</label><input class="fi" id="sNotas" placeholder="Objetivos, observaciones..."></div>
     <button class="btn-sv" onclick="saveSess()">Guardar sesión ✓</button>
     <button class="btn-can" onclick="closeM('sessModal')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ACT MODAL -->
+<div class="modal-overlay" id="actModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="actTitleM">Nueva actividad</div>
+    <div class="modal-sub">Crea actividades reutilizables para agenda y materiales.</div>
+    <div class="fg"><label class="fl">Nombre</label><input class="fi" id="aNom" placeholder="Ej: Soplo con burbujas"></div>
+    <div class="fg"><label class="fl">Descripción</label><textarea class="fi" id="aDesc" placeholder="Objetivo, dinámica o indicaciones de la actividad..."></textarea></div>
+    <div class="fg">
+      <label class="fl">Áreas relacionadas</label>
+      <div class="chip-grp" id="actAreaChips">
+        <button class="chip" onclick="tc(this)">👁 Visual</button>
+        <button class="chip" onclick="tc(this)">👂 Auditivo</button>
+        <button class="chip" onclick="tc(this)">🖐 Motor</button>
+        <button class="chip" onclick="tc(this)">💬 Lenguaje</button>
+        <button class="chip" onclick="tc(this)">🧠 Cognitivo</button>
+        <button class="chip" onclick="tc(this)">👃 Olfativo</button>
+        <button class="chip" onclick="tc(this)">🤲 Táctil</button>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Materiales vinculados</label><input class="fi" id="aMats" placeholder="Ej: burbujas, espejo, tarjetas (separados por comas)"></div>
+    <button class="btn-sv" onclick="saveAct()">Guardar actividad ✓</button>
+    <button class="btn-del-p" id="btnDelAct" style="display:none;" onclick="deleteAct()">Eliminar actividad</button>
+    <button class="btn-can" onclick="closeM('actModal')">Cancelar</button>
   </div>
 </div>
 
@@ -573,9 +630,10 @@ let SUPABASE_URL='';
 let SUPABASE_ANON_KEY='';
 let SUPABASE_ENABLED=false;
 
-let sessions=[],pacientes=[],compraList=[],checkedMats={},extraMats={};
+let sessions=[],pacientes=[],actividades=[],compraList=[],checkedMats={},extraMats={};
 try{sessions=JSON.parse(localStorage.getItem('fk_v5_sess')||'[]');}catch(e){}
 try{pacientes=JSON.parse(localStorage.getItem('fk_v5_pacs')||'[]');}catch(e){}
+try{actividades=JSON.parse(localStorage.getItem('fk_v5_acts')||'[]');}catch(e){}
 try{compraList=JSON.parse(localStorage.getItem('fk_v5_compra')||'[]');}catch(e){}
 try{checkedMats=JSON.parse(localStorage.getItem('fk_v5_chk')||'{}');}catch(e){}
 try{extraMats=JSON.parse(localStorage.getItem('fk_v5_extra')||'{}');}catch(e){}
@@ -583,6 +641,7 @@ try{extraMats=JSON.parse(localStorage.getItem('fk_v5_extra')||'{}');}catch(e){}
 let curDate=new Date(),selDate=new Date(),editSessIdx=-1,editPacIdx=-1,curPacIdx=-1;
 let clipboard=null,pmDate=new Date(),pmSelDate=null,selectedSessPacs=[];
 let matTab='semana',weekOff=0,selDayMat=null,reportSessIdx=-1;
+let editActIdx=-1;
 let supabase=null,authSession=null,syncTimer=null,isHydratingRemote=false,authSubscription=null,supabaseFactory=null;
 function loadSupabaseConfig(){
   let stored={};
@@ -620,12 +679,14 @@ async function ensureSupabaseReady(){
 function persistLocalState(){
   try{localStorage.setItem('fk_v5_sess',JSON.stringify(sessions));}catch(e){}
   try{localStorage.setItem('fk_v5_pacs',JSON.stringify(pacientes));}catch(e){}
+  try{localStorage.setItem('fk_v5_acts',JSON.stringify(actividades));}catch(e){}
   try{localStorage.setItem('fk_v5_compra',JSON.stringify(compraList));}catch(e){}
   try{localStorage.setItem('fk_v5_chk',JSON.stringify(checkedMats));}catch(e){}
   try{localStorage.setItem('fk_v5_extra',JSON.stringify(extraMats));}catch(e){}
 }
 const saveSessions=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
 const savePacs=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
+const saveActs=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
 const saveCompra=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
 const saveChk=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
 const saveExtra=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
@@ -640,15 +701,18 @@ const norm=s=>(s||'').toString().trim().toLowerCase().replace(/\s+/g,' ');
 const fullName=p=>[p?.nombre,p?.apellido].filter(Boolean).join(' ').trim();
 const patientSnapshot=p=>({id:p.id,nombre:fullName(p),edad:calcEdad(p.fechaNac)});
 const getPatientById=id=>pacientes.find(p=>p.id===id)||null;
-const hasLocalData=()=>!!(pacientes.length||sessions.length||compraList.length||Object.keys(checkedMats).length||Object.keys(extraMats).length);
-const snapshotState=()=>({pacientes:dc(pacientes),sessions:dc(sessions),compra_list:dc(compraList),checked_mats:dc(checkedMats),extra_mats:dc(extraMats)});
+const hasLocalData=()=>!!(pacientes.length||actividades.length||sessions.length||compraList.length||Object.keys(checkedMats).length||Object.keys(extraMats).length);
+const snapshotState=()=>({pacientes:dc(pacientes),sessions:dc(sessions),compra_list:dc(compraList),checked_mats:dc(checkedMats),extra_mats:{...dc(extraMats),__activities:dc(actividades)}});
 function applyRemoteState(state){
   isHydratingRemote=true;
   pacientes=dc(state?.pacientes||[]);
+  const rawExtra=dc(state?.extra_mats||{});
+  actividades=dc(state?.actividades||rawExtra.__activities||[]);
+  if(rawExtra&&typeof rawExtra==='object')delete rawExtra.__activities;
   sessions=(state?.sessions||[]).map(syncSessionPatients);
   compraList=dc(state?.compra_list||[]);
   checkedMats=dc(state?.checked_mats||{});
-  extraMats=dc(state?.extra_mats||{});
+  extraMats=rawExtra;
   persistLocalState();
   isHydratingRemote=false;
 }
@@ -662,6 +726,8 @@ function syncSessionPatients(s){
   s.patientIds=(s.patientIds||[]).filter(Boolean);
   s.estado=s.estado==='realizada'?'realizada':'pendiente';
   s.informe=s.informe||'';
+  s.activityId=s.activityId||'';
+  s.activityName=s.activityName||'';
   s.pacientes=getSessionPatients(s);
   return s;
 }
@@ -775,6 +841,7 @@ function closeSetupOverlay(){showSetupOverlay(false);}
 function renderApp(){
   updateHeader();updateStats();renderCal();renderSessions();
   if(document.getElementById('viewPacientes')?.classList.contains('active'))renderPacs();
+  if(document.getElementById('viewActividades')?.classList.contains('active'))renderActs();
   if(document.getElementById('viewMateriales')?.classList.contains('active'))setMatTab(matTab);
 }
 async function upsertRemoteState(showToast){
@@ -917,6 +984,7 @@ function renderSessions(){
       </div>
       ${pac.length===1?`<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:5px;">${pac[0].nombre} <span style="font-size:11px;color:var(--muted);">(${pac[0].edad})</span></div>`:''}
       ${pac.length>1?`<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:7px;">${pac.map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="pac-chip"><div class="av" style="background:${bg};color:${fg};width:22px;height:22px;font-size:9px;">${ini(p.nombre)}</div><span class="pac-name">${p.nombre}</span><span class="pac-age">${p.edad}</span></div>`;}).join('')}</div>`:''}
+      ${s.activityName?`<div style="font-size:10px;font-weight:800;color:var(--amber);margin-bottom:6px;">🧩 ${s.activityName}</div>`:''}
       ${areas?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px;">${areas}</div>`:''}
       ${s.materiales?`<div style="font-size:10px;color:var(--muted);font-weight:600;">📦 ${s.materiales.split(',').slice(0,3).map(m=>m.trim()).join(', ')}</div>`:''}
       <div class="status-row">
@@ -967,12 +1035,28 @@ function toggleSelPac(i){
   if(idx>=0)selectedSessPacs.splice(idx,1);else selectedSessPacs.push(i);
   buildPacSelector();
 }
+function fillActivityOptions(selectedId=''){
+  const sel=document.getElementById('sActividad');
+  if(!sel)return;
+  sel.innerHTML=`<option value="">Sin actividad vinculada</option>`+actividades.map(a=>`<option value="${a.id}">${a.nombre}</option>`).join('');
+  sel.value=selectedId||'';
+}
+function applySelectedActivityToSession(overrideMaterials){
+  const sel=document.getElementById('sActividad');
+  if(!sel)return;
+  const act=actividades.find(a=>a.id===sel.value);
+  if(!act)return;
+  document.querySelectorAll('#sessAreaChips .chip').forEach(c=>c.classList.toggle('sel',(act.areas||[]).includes(c.textContent)));
+  const matsEl=document.getElementById('sMats');
+  if(matsEl&&(overrideMaterials||!matsEl.value.trim()))matsEl.value=act.materiales||'';
+}
 function openAddSess(){
   editSessIdx=-1;selectedSessPacs=[];
   document.getElementById('sessTitleM').textContent='Nueva sesión 🎉';
   document.getElementById('sessSubM').textContent=fmtDate(selDate);
   document.getElementById('sInicio').value='09:00';document.getElementById('sFin').value='09:45';
   document.getElementById('sMats').value='';document.getElementById('sNotas').value='';
+  fillActivityOptions('');
   document.querySelectorAll('#sessAreaChips .chip').forEach(c=>c.classList.remove('sel'));
   buildPacSelector();document.getElementById('sessModal').classList.add('open');
 }
@@ -983,6 +1067,7 @@ function openEditSess(idx){
   document.getElementById('sessSubM').textContent=fmtDate(selDate);
   document.getElementById('sInicio').value=s.inicio;document.getElementById('sFin').value=s.fin;
   document.getElementById('sMats').value=s.materiales||'';document.getElementById('sNotas').value=s.notas||'';
+  fillActivityOptions(s.activityId||'');
   document.querySelectorAll('#sessAreaChips .chip').forEach(c=>{c.classList.toggle('sel',(s.areas||[]).includes(c.textContent));});
   buildPacSelector();document.getElementById('sessModal').classList.add('open');
 }
@@ -1000,7 +1085,9 @@ function saveSess(){
   }
   const areas=[...document.querySelectorAll('#sessAreaChips .chip.sel')].map(c=>c.textContent);
   const prev=editSessIdx>=0?sessions[editSessIdx]:null;
-  const obj=syncSessionPatients({id:prev?prev.id:uid('sess'),date:dk(selDate),inicio,fin,patientIds,areas,materiales:document.getElementById('sMats').value,notas:document.getElementById('sNotas').value,estado:prev?.estado||'pendiente',informe:prev?.informe||''});
+  const activityId=document.getElementById('sActividad').value||'';
+  const activity=actividades.find(a=>a.id===activityId);
+  const obj=syncSessionPatients({id:prev?prev.id:uid('sess'),date:dk(selDate),inicio,fin,patientIds,activityId,activityName:activity?.nombre||'',areas,materiales:document.getElementById('sMats').value,notas:document.getElementById('sNotas').value,estado:prev?.estado||'pendiente',informe:prev?.informe||''});
   if(editSessIdx>=0){sessions[editSessIdx]=obj;toast('✅ Sesión actualizada');}else{sessions.push(obj);toast('✅ Sesión guardada');}
   saveSessions();closeM('sessModal');renderCal();renderSessions();updateStats();
 }
@@ -1208,6 +1295,81 @@ function openNotaModal(){document.getElementById('notaSub').textContent=paciente
 function saveNota(){const txt=document.getElementById('notaTxt').value.trim();if(!txt){alert('Escribe una nota');return;}if(!pacientes[curPacIdx].notas)pacientes[curPacIdx].notas=[];const h=new Date();pacientes[curPacIdx].notas.push({fecha:h.getDate()+'/'+(h.getMonth()+1)+'/'+h.getFullYear(),texto:txt});savePacs();closeM('notaModal');renderFicha(curPacIdx);toast('📝 Nota guardada');}
 function delNota(pi,ni){if(confirm('¿Eliminar nota?')){pacientes[pi].notas.splice(ni,1);savePacs();renderNotas(pi);toast('Nota eliminada');}}
 
+// ── ACTIVIDADES ──
+function renderActs(){
+  const q=(document.getElementById('searchAct')?.value||'').toLowerCase();
+  const list=actividades.filter(a=>!q||(a.nombre+' '+(a.descripcion||'')+' '+(a.materiales||'')).toLowerCase().includes(q));
+  const cont=document.getElementById('actList');
+  if(!cont)return;
+  if(!list.length){
+    cont.innerHTML=`<div class="empty" style="padding:40px 16px;"><div class="ico">🧩</div><p>${q?'No se encontraron actividades.':'Aún no hay actividades creadas.<br>Puedes preparar actividades con materiales para reutilizarlas al agendar.'}</p><button class="add-btn2" style="margin-top:14px;" onclick="openAddAct()">＋ Nueva actividad</button></div>`;
+    return;
+  }
+  cont.innerHTML=list.map(a=>{
+    const idx=actividades.indexOf(a);
+    const areas=(a.areas||[]).map(x=>`<span class="badge ${BM[x]||''}">${x}</span>`).join('');
+    return `<div class="act-card">
+      <div class="act-title">${a.nombre}</div>
+      ${a.descripcion?`<div class="act-desc">${a.descripcion}</div>`:''}
+      <div class="act-meta">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">${areas||'<span style="font-size:10px;font-weight:700;color:var(--muted);">Sin áreas asignadas</span>'}</div>
+      </div>
+      ${a.materiales?`<div class="act-mats">📦 ${a.materiales}</div>`:''}
+      <div class="act-actions">
+        <button class="act-btn" onclick="openEditAct(${idx})">✏️ Editar</button>
+        <button class="act-btn del" onclick="deleteAct(${idx})">🗑 Eliminar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function openAddAct(){
+  editActIdx=-1;
+  document.getElementById('actTitleM').textContent='Nueva actividad';
+  document.getElementById('aNom').value='';
+  document.getElementById('aDesc').value='';
+  document.getElementById('aMats').value='';
+  document.querySelectorAll('#actAreaChips .chip').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('btnDelAct').style.display='none';
+  document.getElementById('actModal').classList.add('open');
+}
+function openEditAct(idx){
+  const a=actividades[idx];
+  editActIdx=idx;
+  document.getElementById('actTitleM').textContent='Editar actividad';
+  document.getElementById('aNom').value=a.nombre||'';
+  document.getElementById('aDesc').value=a.descripcion||'';
+  document.getElementById('aMats').value=a.materiales||'';
+  document.querySelectorAll('#actAreaChips .chip').forEach(c=>c.classList.toggle('sel',(a.areas||[]).includes(c.textContent)));
+  document.getElementById('btnDelAct').style.display='block';
+  document.getElementById('actModal').classList.add('open');
+}
+function saveAct(){
+  const nombre=document.getElementById('aNom').value.trim();
+  if(!nombre){toast('⚠️ Ingresa el nombre de la actividad');return;}
+  const areas=[...document.querySelectorAll('#actAreaChips .chip.sel')].map(c=>c.textContent);
+  const prev=editActIdx>=0?actividades[editActIdx]:null;
+  const obj={id:prev?.id||uid('act'),nombre,descripcion:document.getElementById('aDesc').value.trim(),materiales:document.getElementById('aMats').value.trim(),areas};
+  if(editActIdx>=0){actividades[editActIdx]=obj;toast('✅ Actividad actualizada');}
+  else{actividades.push(obj);toast('✅ Actividad creada');}
+  saveActs();
+  closeM('actModal');
+  renderActs();
+}
+function deleteAct(idxArg){
+  const idx=typeof idxArg==='number'?idxArg:editActIdx;
+  if(idx<0||!actividades[idx])return;
+  if(confirm('¿Eliminar la actividad "'+actividades[idx].nombre+'"?')){
+    const removedId=actividades[idx].id;
+    actividades.splice(idx,1);
+    sessions=sessions.map(s=>s.activityId===removedId?syncSessionPatients({...s,activityId:'',activityName:''}):s);
+    saveActs();saveSessions();
+    if(editActIdx>=0)closeM('actModal');
+    renderActs();
+    renderSessions();
+    toast('🗑 Actividad eliminada');
+  }
+}
+
 // ── MATERIALES ──
 function setMatTab(t){
   matTab=t;
@@ -1312,6 +1474,7 @@ function sw(id,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById(id).classList.add('active');el.classList.add('active');
   if(id==='viewPacientes')renderPacs();
+  if(id==='viewActividades')renderActs();
   if(id==='viewMateriales')setMatTab('semana');
 }
 
@@ -1551,6 +1714,11 @@ saveSupabaseConfig = async function(){
 
 function seed(){
   if(pacientes.length||sessions.length)return;
+  actividades=[
+    {id:uid('act'),nombre:'Soplo con burbujas',descripcion:'Estimulación de soplo, turnos y seguimiento visual con refuerzo lúdico.',materiales:'Burbujas, espejo, pañuelos',areas:['👁 Visual','💬 Lenguaje','🖐 Motor']},
+    {id:uid('act'),nombre:'Tarjetas de sonidos',descripcion:'Discriminación auditiva y nominación con apoyo visual.',materiales:'Tarjetas fonéticas, pictogramas, campana',areas:['👂 Auditivo','💬 Lenguaje','🧠 Cognitivo']},
+    {id:uid('act'),nombre:'Caja sensorial',descripcion:'Exploración táctil guiada con consignas simples y anticipación.',materiales:'Caja sensorial, telas, plastilina',areas:['🤲 Táctil','🧠 Cognitivo','🖐 Motor']}
+  ];
   pacientes=[
     {id:uid('pac'),nombre:'Martina',apellido:'González',fechaNac:'2021-03-15',rut:'',diag:'Retraso del lenguaje expresivo',apo:'Carolina González',tel:'+56 9 8765 4321',frec:'2 veces/semana',obs:'Hipersensibilidad al ruido fuerte. Le gustan las burbujas y los juegos de colores.',areas:['👁 Visual','💬 Lenguaje','🧠 Cognitivo'],notas:[{fecha:'10/04/2025',texto:'Logró nombrar 5 objetos nuevos con apoyo visual. Mejoró tiempo de atención a 8 minutos.'},{fecha:'03/04/2025',texto:'Progreso en imitación vocal. Aún dificultad con /r/ y /l/.'}]},
     {id:uid('pac'),nombre:'Tomás',apellido:'Herrera',fechaNac:'2020-08-22',rut:'',diag:'TEA nivel 1',apo:'Roberto Herrera',tel:'+56 9 7654 3210',frec:'2 veces/semana',obs:'Le gustan los trenes y los números. Mejor en sesiones estructuradas.',areas:['👂 Auditivo','💬 Lenguaje','🧠 Cognitivo'],notas:[{fecha:'08/04/2025',texto:'Excelente respuesta a discriminación auditiva. Inició uso espontáneo de 2 palabras juntas.'}]},
@@ -1559,12 +1727,12 @@ function seed(){
   const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   const t=new Date(),d=i=>{const x=new Date(t);x.setDate(t.getDate()+i);return x;};
   sessions=[
-    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id,pacientes[1].id],areas:['👁 Visual','💬 Lenguaje'],materiales:'Tarjetas de colores, espejo, burbujas',notas:'Sesión grupal'}),
-    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'10:30',fin:'11:00',patientIds:[pacientes[2].id],areas:['🖐 Motor'],materiales:'Plastilina, tela suave',notas:''}),
-    syncSessionPatients({id:uid('sess'),date:fmt(d(2)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id],areas:['💬 Lenguaje'],materiales:'Cuentos ilustrados, espejo',notas:''}),
-    syncSessionPatients({id:uid('sess'),date:fmt(d(4)),inicio:'10:00',fin:'10:45',patientIds:[pacientes[1].id],areas:['👂 Auditivo'],materiales:'Instrumentos musicales, auriculares',notas:''}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id,pacientes[1].id],activityId:actividades[1].id,activityName:actividades[1].nombre,areas:['👁 Visual','💬 Lenguaje'],materiales:'Tarjetas de colores, espejo, burbujas',notas:'Sesión grupal'}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(0)),inicio:'10:30',fin:'11:00',patientIds:[pacientes[2].id],activityId:actividades[2].id,activityName:actividades[2].nombre,areas:['🖐 Motor'],materiales:'Plastilina, tela suave',notas:''}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(2)),inicio:'09:00',fin:'09:45',patientIds:[pacientes[0].id],activityId:actividades[0].id,activityName:actividades[0].nombre,areas:['💬 Lenguaje'],materiales:'Cuentos ilustrados, espejo',notas:''}),
+    syncSessionPatients({id:uid('sess'),date:fmt(d(4)),inicio:'10:00',fin:'10:45',patientIds:[pacientes[1].id],activityId:actividades[1].id,activityName:actividades[1].nombre,areas:['👂 Auditivo'],materiales:'Instrumentos musicales, auriculares',notas:''}),
   ];
-  savePacs();saveSessions();
+  saveActs();savePacs();saveSessions();
 }
 
 showAuthOverlay(false);showSetupOverlay(false);seed();renderApp();initAuth();
