@@ -26,10 +26,11 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 /* HEADER */
 .header{background:linear-gradient(135deg,#C43B3B,#A02020);padding:18px 20px 24px;border-radius:0 0 24px 24px;position:relative;overflow:hidden;}
 .header::before{content:'';position:absolute;top:-30px;right:-30px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,0.07);}
-.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
-.app-name{font-family:'Fredoka One',cursive;font-size:24px;color:#fff;letter-spacing:0.5px;}
+.header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:6px;position:relative;z-index:1;}
+.brand-lockup{display:flex;align-items:flex-start;gap:10px;min-width:0;}
+.brand-logo{width:180px;max-width:100%;height:auto;display:block;filter:drop-shadow(0 6px 18px rgba(0,0,0,0.12));}
 .header-date{color:rgba(255,255,255,0.9);font-size:12px;font-weight:700;text-align:right;}
-.header-sub{color:rgba(255,255,255,0.88);font-size:13px;font-weight:700;}
+.header-sub{color:rgba(255,255,255,0.88);font-size:13px;font-weight:700;position:relative;z-index:1;}
 .tool-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:999px;padding:9px 12px;font-size:12px;font-weight:800;color:var(--text);cursor:pointer;font-family:'Nunito',sans-serif;width:100%;}
 .tool-btn:hover{border-color:var(--teal);color:var(--teal);}
 .tool-btn.logout{background:var(--coral-l);border-color:var(--coral-l);color:var(--coral-d);}
@@ -288,7 +289,36 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 <body>
 
 <div class="header">
-  <div class="header-top"><span class="app-name">🎙 FonoKids</span><div class="header-date" id="hDate"></div></div>
+  <div class="header-top">
+    <div class="brand-lockup" aria-label="FonoKids">
+      <svg class="brand-logo" viewBox="0 0 360 180" role="img" aria-hidden="true">
+        <defs>
+          <linearGradient id="brandPink" x1="0" x2="1">
+            <stop offset="0%" stop-color="#FFA1B8"/>
+            <stop offset="100%" stop-color="#FF7FA5"/>
+          </linearGradient>
+          <linearGradient id="brandMint" x1="0" x2="1">
+            <stop offset="0%" stop-color="#B7EFE4"/>
+            <stop offset="100%" stop-color="#92DBC9"/>
+          </linearGradient>
+        </defs>
+        <path d="M92 48c0-20 16-36 36-36 14 0 27 8 34 20 7-12 20-20 34-20 20 0 36 16 36 36 0 28-23 47-48 68l-22 18-22-18c-25-21-48-40-48-68Z" fill="none" stroke="url(#brandPink)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M124 58h72c8 0 14 6 14 14v34c0 8-6 14-14 14h-72c-8 0-14-6-14-14V72c0-8 6-14 14-14Z" fill="#F79BAD"/>
+        <path d="M134 40v16M186 40v16" stroke="url(#brandMint)" stroke-width="12" stroke-linecap="round"/>
+        <rect x="127" y="82" width="14" height="14" rx="3" fill="#FF7FA5"/>
+        <rect x="148" y="82" width="14" height="14" rx="3" fill="#FF7FA5"/>
+        <rect x="169" y="82" width="14" height="14" rx="3" fill="#FF7FA5"/>
+        <rect x="127" y="103" width="14" height="14" rx="3" fill="#FF7FA5"/>
+        <rect x="148" y="103" width="14" height="14" rx="3" fill="#FF7FA5"/>
+        <rect x="169" y="103" width="14" height="14" rx="3" fill="#FF7FA5"/>
+        <path d="M209 109c0 17-9 31-24 40l-12 7v-25c0-11 9-20 20-20h16v-2Z" fill="url(#brandMint)"/>
+        <path d="M183 135c6 5 15 5 21 0" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+        <text x="34" y="170" font-family="Nunito, sans-serif" font-weight="900" font-size="46" fill="#FFA1B8">Fono</text>
+        <text x="150" y="170" font-family="Nunito, sans-serif" font-weight="900" font-size="46" fill="#A8E5D8">kids</text>
+      </svg>
+    </div>
+    <div class="header-date" id="hDate"></div>
+  </div>
   <div class="header-sub" id="hSub">Hola, Fono! 👋</div>
 </div>
 
