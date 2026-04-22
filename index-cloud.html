@@ -823,6 +823,7 @@ function renderUserLinkedIcon(){
   if(!fab||!icon||!label||!cardAvatar||!cardName||!cardSub)return;
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY){
     fab.style.display='none';
+    fab.classList.remove('compact');
     cardAvatar.textContent='👤';
     cardName.textContent='Modo local';
     cardSub.textContent='Puedes configurar tu cuenta y respaldos aquí.';
@@ -866,6 +867,7 @@ function renderApp(){
   if(document.getElementById('viewPacientes')?.classList.contains('active'))renderPacs();
   if(document.getElementById('viewActividades')?.classList.contains('active'))renderActs();
   if(document.getElementById('viewMateriales')?.classList.contains('active'))setMatTab(matTab);
+  renderUserLinkedIcon();
 }
 async function upsertRemoteState(showToast){
   if(isHydratingRemote||!authSession)return false;
@@ -889,6 +891,7 @@ async function upsertRemoteState(showToast){
   }
   setPendingSync(false);
   setSyncNote('Guardado automatico en la nube');
+  showSaveHint('Sincronizado');
   if(showToast)toast('☁️ Datos sincronizados');
   return true;
 }
@@ -901,7 +904,8 @@ function scheduleRemoteSync(){
     return;
   }
   setSyncNote('Guardando cambios en la nube...');
-  syncTimer=setTimeout(()=>{upsertRemoteState(false);},900);
+  showSaveHint('Sincronizando...');
+  syncTimer=setTimeout(()=>{upsertRemoteState(false);},350);
 }
 async function manualSync(){await upsertRemoteState(true);}
 async function loadRemoteState(){
@@ -1539,9 +1543,10 @@ async function refreshAuthUi(){
   const loginBtn=document.getElementById('loginBtn');
   const logoutBtn=document.getElementById('logoutBtn');
   const syncBtn=document.getElementById('syncBtn');
-  if(loginBtn)loginBtn.style.display=(SUPABASE_URL&&SUPABASE_ANON_KEY&&!logged)?'inline-flex':'none';
+  if(loginBtn)loginBtn.style.display=(SUPABASE_URL&&SUPABASE_ANON_KEY)?'inline-flex':'none';
   if(logoutBtn)logoutBtn.style.display=SUPABASE_ENABLED&&logged?'inline-flex':'none';
   if(syncBtn)syncBtn.style.display=SUPABASE_ENABLED&&logged?'inline-flex':'none';
+  renderUserLinkedIcon();
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY){
     setCloudStatus('Modo local','warn');
     setSyncNote('Configura Supabase si quieres probar la nube en esta versión.');
