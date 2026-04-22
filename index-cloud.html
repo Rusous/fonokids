@@ -287,6 +287,16 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 .sync-note{font-size:10px;font-weight:700;color:var(--muted);padding:0;margin-top:10px;line-height:1.5;}
 .view{display:none;}
 .view.active{display:block;}
+.confirm-card{width:100%;max-width:360px;background:var(--bg2);border:1.5px solid var(--border);border-radius:24px;padding:20px 18px;box-shadow:0 22px 50px rgba(0,0,0,0.35);}
+.confirm-icon{width:56px;height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--coral-l);color:var(--coral-d);margin-bottom:14px;border:1px solid rgba(255,107,107,0.22);}
+.confirm-title{font-size:20px;font-weight:900;color:var(--text);margin-bottom:6px;}
+.confirm-text{font-size:13px;font-weight:700;color:var(--muted);line-height:1.6;margin-bottom:18px;white-space:pre-wrap;}
+.confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.confirm-btn{border:none;border-radius:14px;padding:12px 14px;font-size:13px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:opacity 0.15s;}
+.confirm-btn:hover{opacity:0.9;}
+.confirm-btn.cancel{background:var(--surface);color:var(--text);border:1.5px solid var(--border);}
+.confirm-btn.danger{background:var(--coral);color:#fff;}
+.confirm-btn.warn{background:var(--amber);color:#000;}
 
 @media (max-width: 520px){
   body{max-width:100%;}
@@ -469,6 +479,18 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
       <button class="tool-btn" onclick="openSetupOverlay()">Config nube</button>
       <button class="tool-btn" id="syncBtn" onclick="manualSync()" style="display:none;">Sincronizar</button>
       <button class="tool-btn logout" id="logoutBtn" onclick="logout()" style="display:none;">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirmModal">
+  <div class="confirm-card">
+    <div class="confirm-icon" id="confirmIcon">🗑️</div>
+    <div class="confirm-title" id="confirmTitle">Confirmar acción</div>
+    <div class="confirm-text" id="confirmText">¿Seguro que quieres continuar?</div>
+    <div class="confirm-actions">
+      <button class="confirm-btn cancel" onclick="resolveConfirm(false)">Cancelar</button>
+      <button class="confirm-btn danger" id="confirmOkBtn" onclick="resolveConfirm(true)">Eliminar</button>
     </div>
   </div>
 </div>
@@ -704,6 +726,7 @@ let clipboard=null,pmDate=new Date(),pmSelDate=null,selectedSessPacs=[];
 let matTab='semana',weekOff=0,selDayMat=null,reportSessIdx=-1;
 let editActIdx=-1;
 let supabase=null,authSession=null,syncTimer=null,isHydratingRemote=false,authSubscription=null,supabaseFactory=null;
+let confirmResolver=null;
 const PENDING_SYNC_KEY='fk_cloud_sync_pending';
 let pendingRemoteSync=localStorage.getItem(PENDING_SYNC_KEY)==='1';
 let restoredSessionThisLaunch=false;
@@ -1263,7 +1286,17 @@ function toggleReportText(idx){
   const collapsed=txt.classList.toggle('collapsed');
   btn.textContent=collapsed?'Mostrar más':'Mostrar menos';
 }
-function delSess(idx){if(confirm('¿Eliminar esta sesión?')){sessions.splice(idx,1);saveSessions();renderCal();renderSessions();updateStats();toast('🗑 Eliminada');}}
+async function delSess(idx){
+  const ok=await askConfirm({
+    title:'Eliminar sesión',
+    text:'Esta sesión se quitará de la agenda y de los materiales vinculados.',
+    confirmText:'Sí, eliminar',
+    tone:'danger',
+    icon:'🗓️'
+  });
+  if(!ok)return;
+  sessions.splice(idx,1);saveSessions();renderCal();renderSessions();updateStats();toast('🗑 Eliminada');
+}
 
 // ── CLIPBOARD ──
 function copySess(idx){
@@ -1400,10 +1433,32 @@ function savePac(){
   saveSessions();
   savePacs();closeM('pacModal');if(editPacIdx>=0)openFicha(editPacIdx);renderPacs();updateStats();
 }
-function deletePac(){if(confirm('¿Eliminar la ficha de '+pacientes[curPacIdx].nombre+'?')){pacientes.splice(curPacIdx,1);savePacs();closeFicha();toast('🗑 Ficha eliminada');updateStats();}}
+async function deletePac(){
+  const pac=pacientes[curPacIdx];
+  if(!pac)return;
+  const ok=await askConfirm({
+    title:'Eliminar ficha',
+    text:'Se eliminará la ficha de '+pac.nombre+' y dejará de aparecer en la app.',
+    confirmText:'Sí, eliminar',
+    tone:'danger',
+    icon:'👶'
+  });
+  if(!ok)return;
+  pacientes.splice(curPacIdx,1);savePacs();closeFicha();toast('🗑 Ficha eliminada');updateStats();
+}
 function openNotaModal(){document.getElementById('notaSub').textContent=pacientes[curPacIdx]?.nombre||'';document.getElementById('notaTxt').value='';document.getElementById('notaModal').classList.add('open');}
 function saveNota(){const txt=document.getElementById('notaTxt').value.trim();if(!txt){alert('Escribe una nota');return;}if(!pacientes[curPacIdx].notas)pacientes[curPacIdx].notas=[];const h=new Date();pacientes[curPacIdx].notas.push({fecha:h.getDate()+'/'+(h.getMonth()+1)+'/'+h.getFullYear(),texto:txt});savePacs();closeM('notaModal');renderFicha(curPacIdx);toast('📝 Nota guardada');}
-function delNota(pi,ni){if(confirm('¿Eliminar nota?')){pacientes[pi].notas.splice(ni,1);savePacs();renderNotas(pi);toast('Nota eliminada');}}
+async function delNota(pi,ni){
+  const ok=await askConfirm({
+    title:'Eliminar nota',
+    text:'Esta nota de evolución se borrará de la ficha del paciente.',
+    confirmText:'Eliminar nota',
+    tone:'warn',
+    icon:'📝'
+  });
+  if(!ok)return;
+  pacientes[pi].notas.splice(ni,1);savePacs();renderNotas(pi);toast('Nota eliminada');
+}
 
 // ── ACTIVIDADES ──
 function renderActs(){
@@ -1465,19 +1520,25 @@ function saveAct(){
   closeM('actModal');
   renderActs();
 }
-function deleteAct(idxArg){
+async function deleteAct(idxArg){
   const idx=typeof idxArg==='number'?idxArg:editActIdx;
   if(idx<0||!actividades[idx])return;
-  if(confirm('¿Eliminar la actividad "'+actividades[idx].nombre+'"?')){
-    const removedId=actividades[idx].id;
-    actividades.splice(idx,1);
-    sessions=sessions.map(s=>s.activityId===removedId?syncSessionPatients({...s,activityId:'',activityName:''}):s);
-    saveActs();saveSessions();
-    if(editActIdx>=0)closeM('actModal');
-    renderActs();
-    renderSessions();
-    toast('🗑 Actividad eliminada');
-  }
+  const ok=await askConfirm({
+    title:'Eliminar actividad',
+    text:'"'+actividades[idx].nombre+'" se quitará de tu biblioteca y dejará de estar disponible al agendar.',
+    confirmText:'Sí, eliminar',
+    tone:'danger',
+    icon:'🧩'
+  });
+  if(!ok)return;
+  const removedId=actividades[idx].id;
+  actividades.splice(idx,1);
+  sessions=sessions.map(s=>s.activityId===removedId?syncSessionPatients({...s,activityId:'',activityName:''}):s);
+  saveActs();saveSessions();
+  if(editActIdx>=0)closeM('actModal');
+  renderActs();
+  renderSessions();
+  toast('🗑 Actividad eliminada');
 }
 
 // ── MATERIALES ──
@@ -1574,7 +1635,27 @@ function shareCompra(){if(!compraList.length)return toast('Lista vacía');const 
 
 // ── UTILS ──
 function tc(el){el.classList.toggle('sel');}
-function closeM(id){document.getElementById(id).classList.remove('open');if(id==='reportModal')reportSessIdx=-1;}
+function resolveConfirm(accepted){
+  document.getElementById('confirmModal')?.classList.remove('open');
+  const resolver=confirmResolver;
+  confirmResolver=null;
+  if(resolver)resolver(!!accepted);
+}
+function askConfirm({title='Confirmar acción',text='¿Seguro que quieres continuar?',confirmText='Confirmar',tone='danger',icon='🗑️'}={}){
+  document.getElementById('confirmTitle').textContent=title;
+  document.getElementById('confirmText').textContent=text;
+  document.getElementById('confirmIcon').textContent=icon;
+  const btn=document.getElementById('confirmOkBtn');
+  btn.textContent=confirmText;
+  btn.className='confirm-btn '+(tone==='warn'?'warn':'danger');
+  document.getElementById('confirmModal')?.classList.add('open');
+  return new Promise(resolve=>{confirmResolver=resolve;});
+}
+function closeM(id){
+  document.getElementById(id).classList.remove('open');
+  if(id==='reportModal')reportSessIdx=-1;
+  if(id==='confirmModal')resolveConfirm(false);
+}
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeM(o.id);}));
 document.getElementById('prevM').onclick=()=>{curDate.setMonth(curDate.getMonth()-1);renderCal();};
 document.getElementById('nextM').onclick=()=>{curDate.setMonth(curDate.getMonth()+1);renderCal();};
