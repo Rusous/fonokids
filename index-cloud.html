@@ -107,7 +107,9 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .status-btn.done.active{background:var(--teal-l);border-color:var(--teal);color:var(--teal-d);}
 .report-box{margin-top:8px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;}
 .report-lbl{font-size:10px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;}
-.report-txt{font-size:11px;font-weight:600;color:var(--text);line-height:1.5;white-space:pre-wrap;}
+.report-txt{font-size:11px;font-weight:600;color:var(--text);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;}
+.report-txt.collapsed{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;}
+.report-more{margin-top:8px;background:none;border:none;color:var(--teal);font-size:11px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;padding:0;}
 
 .empty-s{text-align:center;padding:24px 16px;}
 .empty-s .ico{font-size:32px;margin-bottom:8px;}
@@ -1093,7 +1095,7 @@ function renderSessions(){
         <button class="status-btn pending ${!done?'active':''}" onclick="markSessionPending(${idx})">Pendiente</button>
         <button class="status-btn done ${done?'active':''}" onclick="openReportModal(${idx})">${done?'Editar informe':'Realizada'}</button>
       </div>
-      ${done&&s.informe?`<div class="report-box"><div class="report-lbl">Informe guardado</div><div class="report-txt">${s.informe}</div><button class="card-act-btn" style="margin-top:8px;" onclick="copySessionReport(${idx})">📄 Copiar informe</button></div>`:''}
+      ${done&&s.informe?renderReportContent(s.informe,idx):''}
       <div class="card-acts">
         <button class="card-act-btn" onclick="openEditSess(${idx})">✏️ Editar</button>
         <button class="card-act-btn" onclick="copySess(${idx})">📋 Copiar</button>
@@ -1254,6 +1256,28 @@ function copySessionReport(idx){
   const fecha=`${DL[d.getDay()]} ${d.getDate()} de ${MO[d.getMonth()]} de ${d.getFullYear()}`;
   const txt=`Informe de sesión\n\nFecha: ${fecha}\nHora: ${s.inicio}–${s.fin}\nPacientes: ${pacNames}\n\nInforme: ${s.informe}`;
   copyText(txt,'📋 Informe copiado');
+}
+function escapeHtml(txt=''){
+  return String(txt)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+function renderReportContent(text,idx){
+  const safe=escapeHtml(text||'');
+  if(!text)return '';
+  const needsToggle=text.length>180||String(text).includes('\n');
+  const cls='report-txt'+(needsToggle?' collapsed':'');
+  return `<div class="report-box"><div class="report-lbl">Informe guardado</div><div class="${cls}" id="reportTxtView${idx}">${safe}</div>${needsToggle?`<button class="report-more" id="reportMoreBtn${idx}" onclick="toggleReportText(${idx})">Mostrar más</button>`:''}<button class="card-act-btn" style="margin-top:8px;" onclick="copySessionReport(${idx})">📄 Copiar informe</button></div>`;
+}
+function toggleReportText(idx){
+  const txt=document.getElementById('reportTxtView'+idx);
+  const btn=document.getElementById('reportMoreBtn'+idx);
+  if(!txt||!btn)return;
+  const collapsed=txt.classList.toggle('collapsed');
+  btn.textContent=collapsed?'Mostrar más':'Mostrar menos';
 }
 function delSess(idx){if(confirm('¿Eliminar esta sesión?')){sessions.splice(idx,1);saveSessions();renderCal();renderSessions();updateStats();toast('🗑 Eliminada');}}
 
