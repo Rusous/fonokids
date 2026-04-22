@@ -31,8 +31,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .header-date{color:rgba(255,255,255,0.9);font-size:12px;font-weight:700;text-align:right;}
 .header-sub{color:rgba(255,255,255,0.88);font-size:13px;font-weight:700;}
 .cloud-tag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:rgba(62,207,190,0.12);border:1px solid rgba(62,207,190,0.35);color:var(--teal-d);border-radius:999px;padding:5px 10px;font-size:10px;font-weight:800;}
-.header-tools{display:flex;gap:8px;align-items:center;padding:12px 16px 0;flex-wrap:wrap;}
-.tool-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:999px;padding:7px 12px;font-size:11px;font-weight:800;color:var(--text);cursor:pointer;font-family:'Nunito',sans-serif;}
+.tool-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:999px;padding:9px 12px;font-size:12px;font-weight:800;color:var(--text);cursor:pointer;font-family:'Nunito',sans-serif;width:100%;}
 .tool-btn:hover{border-color:var(--teal);color:var(--teal);}
 .tool-btn.logout{background:var(--coral-l);border-color:var(--coral-l);color:var(--coral-d);}
 .cloud-pill{font-size:10px;font-weight:800;border-radius:999px;padding:6px 10px;border:1.5px solid var(--border);color:var(--muted);background:var(--surface);}
@@ -249,6 +248,21 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;padding:4px 10px;border-radius:9px;transition:color 0.15s;}
 .nav-item.active{color:var(--coral);}
 .nav-icon{font-size:19px;}
+.user-fab{position:fixed;right:16px;bottom:92px;z-index:90;display:none;align-items:center;gap:9px;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);border-radius:999px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,0.28);font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;}
+.user-fab:hover{border-color:var(--teal);color:var(--teal);}
+.user-fab-ico,.user-fab-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.user-fab-ico{background:var(--surface);font-size:15px;}
+.user-fab-avatar{background:var(--teal-l);color:var(--teal-d);font-size:13px;font-weight:900;border:1px solid rgba(62,207,190,0.28);}
+.cloud-panel{background:var(--bg2);border-radius:24px 24px 0 0;padding:18px 16px 36px;width:100%;max-width:420px;border-top:1px solid var(--border);}
+.cloud-panel-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.cloud-panel-title{font-size:16px;font-weight:900;color:var(--text);}
+.cloud-panel-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;font-family:'Nunito',sans-serif;}
+.cloud-user{display:flex;align-items:center;gap:10px;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:10px 12px;margin-bottom:10px;}
+.cloud-user-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--teal-l);color:var(--teal-d);font-size:14px;font-weight:900;flex-shrink:0;}
+.cloud-user-name{font-size:12px;font-weight:800;color:var(--text);}
+.cloud-user-sub{font-size:10px;font-weight:700;color:var(--muted);margin-top:1px;}
+.cloud-actions{display:grid;gap:8px;margin-top:12px;}
+.sync-note{font-size:10px;font-weight:700;color:var(--muted);padding:0;margin-top:10px;line-height:1.5;}
 .view{display:none;}
 .view.active{display:block;}
 
@@ -264,7 +278,6 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 .auth-title{font-size:22px;font-weight:900;color:var(--text);margin-bottom:4px;}
 .auth-sub{font-size:12px;font-weight:700;color:var(--muted);line-height:1.5;margin-bottom:16px;}
 .auth-msg{font-size:11px;font-weight:700;color:var(--amber);margin-top:10px;min-height:16px;}
-.sync-note{font-size:10px;font-weight:700;color:var(--muted);padding:0 16px 8px;}
 .setup-link{background:none;border:none;color:var(--teal);font-size:11px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;padding:0;margin-top:10px;}
 </style>
 <link rel="manifest" href="./manifest.json">
@@ -276,15 +289,6 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
   <div class="header-sub" id="hSub">Hola, Fono! 👋</div>
   <div class="cloud-tag">Versión cloud en preparación</div>
 </div>
-<div class="header-tools">
-  <span class="cloud-pill" id="cloudStatus">Modo local</span>
-  <button class="tool-btn" id="exportBtn" onclick="exportBackup()">Exportar JSON</button>
-  <button class="tool-btn" onclick="openSetupOverlay()">Config nube</button>
-  <button class="tool-btn" id="loginBtn" onclick="openAuthOverlay()" style="display:none;">Iniciar sesión</button>
-  <button class="tool-btn" id="syncBtn" onclick="manualSync()" style="display:none;">Sincronizar</button>
-  <button class="tool-btn logout" id="logoutBtn" onclick="logout()" style="display:none;">Cerrar sesión</button>
-</div>
-<div class="sync-note" id="syncNote"></div>
 
 <!-- AGENDA -->
 <div id="viewCalendar" class="view active">
@@ -344,7 +348,38 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
   <div class="nav-item active" onclick="sw('viewCalendar',this)"><span class="nav-icon">📅</span>Agenda</div>
   <div class="nav-item" onclick="sw('viewPacientes',this)"><span class="nav-icon">👶</span>Pacientes</div>
   <div class="nav-item" onclick="sw('viewMateriales',this)"><span class="nav-icon">🛒</span>Materiales</div>
+  <div class="nav-item" onclick="openCloudPanel()"><span class="nav-icon">⚙️</span>Ajustes</div>
 </nav>
+
+<button class="user-fab" id="loginBtn" onclick="openAuthOverlay()" style="display:none;">
+  <span class="user-fab-ico" id="loginBtnIcon">👤</span>
+  <span id="loginBtnLabel">Iniciar sesión</span>
+</button>
+
+<div class="modal-overlay" id="cloudPanelOverlay">
+  <div class="cloud-panel">
+    <div class="modal-handle"></div>
+    <div class="cloud-panel-top">
+      <div class="cloud-panel-title">Ajustes de nube</div>
+      <button class="cloud-panel-close" onclick="closeCloudPanel()">✕</button>
+    </div>
+    <div class="cloud-user">
+      <div class="cloud-user-avatar" id="cloudUserAvatar">👤</div>
+      <div>
+        <div class="cloud-user-name" id="cloudUserName">Modo local</div>
+        <div class="cloud-user-sub" id="cloudUserSub">Puedes configurar tu cuenta y respaldos aquí.</div>
+      </div>
+    </div>
+    <span class="cloud-pill" id="cloudStatus">Modo local</span>
+    <div class="sync-note" id="syncNote"></div>
+    <div class="cloud-actions">
+      <button class="tool-btn" id="exportBtn" onclick="exportBackup()">Exportar JSON</button>
+      <button class="tool-btn" onclick="openSetupOverlay()">Config nube</button>
+      <button class="tool-btn" id="syncBtn" onclick="manualSync()" style="display:none;">Sincronizar</button>
+      <button class="tool-btn logout" id="logoutBtn" onclick="logout()" style="display:none;">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
 
 <!-- FICHA DETALLE -->
 <div class="ficha-view" id="fichaView">
@@ -653,7 +688,52 @@ function setSyncNote(msg){const el=document.getElementById('syncNote');if(el)el.
 function setAuthMessage(msg){const el=document.getElementById('authMsg');if(el)el.textContent=msg||'';}
 function setSetupMessage(msg){const el=document.getElementById('setupMsg');if(el)el.textContent=msg||'';}
 function showAuthOverlay(show){document.getElementById('authOverlay')?.classList.toggle('show',!!show);}
-function openAuthOverlay(){showAuthOverlay(true);setAuthMessage('El login con Supabase se activará después de reconfigurar la nube.');}
+function showCloudPanel(show){document.getElementById('cloudPanelOverlay')?.classList.toggle('open',!!show);}
+function openCloudPanel(){showCloudPanel(true);}
+function closeCloudPanel(){showCloudPanel(false);}
+function openAuthOverlay(){closeCloudPanel();showAuthOverlay(true);setAuthMessage('');}
+function getUserDisplay(){
+  const email=authSession?.user?.email||'';
+  const short=email?email.split('@')[0]:'Usuario';
+  const initial=(short[0]||'U').toUpperCase();
+  return {email,short,initial};
+}
+function renderUserLinkedIcon(){
+  const fab=document.getElementById('loginBtn');
+  const icon=document.getElementById('loginBtnIcon');
+  const label=document.getElementById('loginBtnLabel');
+  const cardAvatar=document.getElementById('cloudUserAvatar');
+  const cardName=document.getElementById('cloudUserName');
+  const cardSub=document.getElementById('cloudUserSub');
+  if(!fab||!icon||!label||!cardAvatar||!cardName||!cardSub)return;
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY){
+    fab.style.display='none';
+    cardAvatar.textContent='👤';
+    cardName.textContent='Modo local';
+    cardSub.textContent='Puedes configurar tu cuenta y respaldos aquí.';
+    return;
+  }
+  const logged=!!authSession;
+  const info=getUserDisplay();
+  fab.style.display='inline-flex';
+  if(logged){
+    icon.className='user-fab-avatar';
+    icon.textContent=info.initial;
+    label.textContent='Mi cuenta';
+    fab.onclick=openCloudPanel;
+    cardAvatar.textContent=info.initial;
+    cardName.textContent=info.short;
+    cardSub.textContent=info.email||'Sesión iniciada';
+  }else{
+    icon.className='user-fab-ico';
+    icon.textContent='👤';
+    label.textContent='Iniciar sesión';
+    fab.onclick=openAuthOverlay;
+    cardAvatar.textContent='👤';
+    cardName.textContent='Sin sesión iniciada';
+    cardSub.textContent='Inicia sesión para restaurar y respaldar tus datos.';
+  }
+}
 function showSetupOverlay(show){
   document.getElementById('setupOverlay')?.classList.toggle('show',!!show);
   if(show){
@@ -662,7 +742,7 @@ function showSetupOverlay(show){
     setSetupMessage('');
   }
 }
-function openSetupOverlay(){showSetupOverlay(true);}
+function openSetupOverlay(){closeCloudPanel();showSetupOverlay(true);}
 function closeSetupOverlay(){showSetupOverlay(false);}
 function renderApp(){
   updateHeader();updateStats();renderCal();renderSessions();
@@ -1314,13 +1394,15 @@ refreshAuthUi = async function(){
   const loginBtn=document.getElementById('loginBtn');
   const logoutBtn=document.getElementById('logoutBtn');
   const syncBtn=document.getElementById('syncBtn');
-  if(loginBtn)loginBtn.style.display=(SUPABASE_URL&&SUPABASE_ANON_KEY&&!logged)?'inline-flex':'none';
+  if(loginBtn)loginBtn.style.display=(SUPABASE_URL&&SUPABASE_ANON_KEY)?'inline-flex':'none';
   if(logoutBtn)logoutBtn.style.display=logged?'inline-flex':'none';
   if(syncBtn)syncBtn.style.display=logged?'inline-flex':'none';
+  renderUserLinkedIcon();
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY){
     setCloudStatus('Modo local','warn');
     setSyncNote('Configura Supabase si quieres probar la nube en esta versión.');
     showAuthOverlay(false);
+    closeCloudPanel();
     return;
   }
   const ready=await ensureSupabaseClient();
