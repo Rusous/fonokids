@@ -1975,6 +1975,17 @@ async function saveSupabaseConfig(){
   closeSetupOverlay();
   await initAuth();
 }
+async function refreshRemoteStateAfterCachedRender(){
+  try{
+    await loadRemoteState();
+    if(pendingRemoteSync&&navigator.onLine)await upsertRemoteState(false);
+  }catch(e){
+    console.error('Remote refresh error',e);
+    setSyncNote('No se pudo actualizar la nube. Mostrando datos guardados en este dispositivo.');
+  }finally{
+    await refreshAuthUi();
+  }
+}
 async function initAuth(){
   loadSupabaseConfig();
   restoredSessionThisLaunch=false;
@@ -1999,8 +2010,12 @@ async function initAuth(){
   if(authSession){
     restoredSessionThisLaunch=true;
     sessionRestoreMessage='Sesión activa en este dispositivo';
-    await loadRemoteState();
-    if(pendingRemoteSync&&navigator.onLine)await upsertRemoteState(false);
+    renderApp();
+    await refreshAuthUi();
+    setCloudStatus(navigator.onLine?'Actualizando nube':'Sin internet','warn');
+    setSyncNote(navigator.onLine?'Mostrando datos guardados. Actualizando nube...':'Mostrando datos guardados en este dispositivo.');
+    refreshRemoteStateAfterCachedRender();
+    return;
   }else{
     clearLocalUserState();
     renderApp();
