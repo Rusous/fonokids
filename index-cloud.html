@@ -148,6 +148,12 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .act-title{font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px;}
 .act-desc{font-size:11px;font-weight:600;color:var(--muted);line-height:1.5;margin-bottom:8px;}
 .act-mats{font-size:10px;font-weight:700;color:var(--amber);margin-top:6px;}
+.act-card:has(.act-mat-list)>.act-mats{display:none;}
+.act-mat-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.act-mat-chip{display:inline-flex;align-items:center;gap:5px;background:var(--amber-l);border:1px solid rgba(255,184,48,0.35);color:var(--amber);border-radius:999px;padding:4px 9px;font-size:10px;font-weight:800;}
+.act-mat-chip button{background:none;border:none;color:var(--amber);font-size:12px;font-weight:900;cursor:pointer;line-height:1;padding:0;}
+.act-mat-editor{display:flex;gap:7px;}
+.act-mat-editor .fi{flex:1;}
 .act-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .act-actions{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
 .act-btn{flex:1;border:1.5px solid var(--border);border-radius:8px;padding:7px;font-size:11px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;background:var(--bg2);color:var(--muted);}
@@ -226,6 +232,11 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .lib-card{margin:0 16px 10px;background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);padding:12px 13px;}
 .lib-name{font-size:13px;font-weight:800;color:var(--text);}
 .lib-sub{font-size:10px;font-weight:700;color:var(--muted);margin-top:2px;}
+.mat-activity-card{margin:0 16px 10px;background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);padding:12px 13px;}
+.mat-activity-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
+.mat-activity-title{font-size:13px;font-weight:900;color:var(--text);}
+.mat-activity-count{font-size:10px;font-weight:900;color:var(--amber);background:var(--amber-l);border:1px solid rgba(255,184,48,0.35);border-radius:999px;padding:3px 8px;white-space:nowrap;}
+.mat-activity-empty{font-size:11px;font-weight:700;color:var(--muted);background:var(--bg2);border:1px dashed var(--border);border-radius:10px;padding:9px 10px;}
 .compra-item{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:var(--rs);border:1.5px solid var(--border);padding:11px 13px;margin-bottom:7px;}
 .comp-chk{width:20px;height:20px;border-radius:5px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.12s;}
 .comp-chk.done{background:var(--green);border-color:var(--green);}
@@ -466,15 +477,15 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 <!-- MATERIALES -->
 <div id="viewMateriales" class="view">
   <div class="tabs">
-    <div class="tab active" id="tabSemana" onclick="setMatTab('semana')">📅 Semana</div>
+    <div class="tab active" id="tabBiblioteca" onclick="setMatTab('biblioteca')">📦 Actividades</div>
+    <div class="tab" id="tabSemana" onclick="setMatTab('semana')">📅 Semana</div>
     <div class="tab" id="tabDia" onclick="setMatTab('dia')">📋 Por día</div>
     <div class="tab" id="tabCompra" onclick="setMatTab('compra')">🛒 Compras</div>
-    <div class="tab" id="tabBiblioteca" onclick="setMatTab('biblioteca')">📦 Biblioteca</div>
   </div>
-  <div id="matSemana"></div>
+  <div id="matSemana" style="display:none;"></div>
   <div id="matDia" style="display:none;"></div>
   <div id="matCompra" style="display:none;"></div>
-  <div id="matBiblioteca" style="display:none;"></div>
+  <div id="matBiblioteca"></div>
 </div>
 
 <nav class="nav-bar">
@@ -613,7 +624,16 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
         <button class="chip" onclick="tc(this)">🤲 Táctil</button>
       </div>
     </div>
-    <div class="fg"><label class="fl">Materiales vinculados</label><input class="fi" id="aMats" placeholder="Ej: burbujas, espejo, tarjetas (separados por comas)"></div>
+    <div class="fg">
+      <label class="fl">Materiales vinculados</label>
+      <div class="act-mat-editor">
+        <input class="fi" id="aMatInput" placeholder="Ej: burbujas, espejo, tarjetas" onkeydown="if(event.key==='Enter'){event.preventDefault();addActMaterial();}">
+        <button type="button" class="btn-extra" onclick="addActMaterial()">＋</button>
+      </div>
+      <input type="hidden" id="aMats">
+      <div class="hint">Agrega cada material a la lista. Tambien puedes escribir varios separados por coma.</div>
+      <div class="act-mat-list" id="aMatList"></div>
+    </div>
     <button class="btn-sv" onclick="saveAct()">Guardar actividad ✓</button>
     <button class="btn-del-p" id="btnDelAct" style="display:none;" onclick="deleteAct()">Eliminar actividad</button>
     <button class="btn-can" onclick="closeM('actModal')">Cancelar</button>
@@ -756,8 +776,9 @@ try{materialPrefs=JSON.parse(localStorage.getItem('fk_v5_matprefs')||'{}');}catc
 let curDate=new Date(),selDate=new Date(),editSessIdx=-1,editPacIdx=-1,curPacIdx=-1;
 let clipboard=null,pmDate=new Date(),pmSelDate=null,selectedSessPacs=[];
 let selectedSessActs=[];
+let actMaterialDraft=[];
 let materialsTouchedManually=false;
-let matTab='semana',weekOff=0,selDayMat=null,reportSessIdx=-1;
+let matTab='biblioteca',weekOff=0,selDayMat=null,reportSessIdx=-1;
 let editActIdx=-1;
 let supabase=null,authSession=null,syncTimer=null,isHydratingRemote=false,authSubscription=null,supabaseFactory=null;
 let confirmResolver=null;
@@ -800,6 +821,16 @@ function clearLocalUserState(){
   document.getElementById('clipBanner')?.classList.remove('show');
   document.getElementById('fichaView')?.classList.remove('open');
 }
+function uniqueMaterials(list){
+  const seen=new Set();
+  return (list||[]).map(m=>String(m||'').trim()).filter(m=>{
+    if(!m)return false;
+    const key=norm(m);
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
 const saveSessions=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
 const savePacs=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
 const saveActs=()=>{persistLocalState();scheduleRemoteSync();showSaveHint();};
@@ -816,7 +847,7 @@ const fmtF=s=>{if(!s)return'';const d=new Date(s+'T12:00:00');return d.getDate()
 const uid=p=>p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const norm=s=>(s||'').toString().trim().toLowerCase().replace(/\s+/g,' ');
 const escJs=s=>String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-const parseMaterials=value=>[...new Set(String(value||'').split(',').map(m=>m.trim()).filter(Boolean))];
+const parseMaterials=value=>uniqueMaterials(String(value||'').split(','));
 function ensureMaterialPref(name){
   const clean=String(name||'').trim();
   if(!clean)return null;
@@ -1271,7 +1302,7 @@ function applySelectedActivitiesToSession(overrideMaterials){
     if(overrideMaterials&&!matsEl.value.trim())matsEl.value='';
     return;
   }
-  const mats=[...new Set(selected.flatMap(act=>parseMaterials(act.materiales)))];
+  const mats=uniqueMaterials(selected.flatMap(act=>parseMaterials(act.materiales)));
   upsertMaterialPrefs(mats);
   if(overrideMaterials||!matsEl.value.trim()||!materialsTouchedManually){
     matsEl.value=mats.join(', ');
@@ -1627,6 +1658,7 @@ function renderActs(){
   cont.innerHTML=list.map(a=>{
     const idx=actividades.indexOf(a);
     const areas=(a.areas||[]).map(x=>`<span class="badge ${BM[x]||''}">${x}</span>`).join('');
+    const mats=parseMaterials(a.materiales);
     return `<div class="act-card">
       <div class="act-title">${a.nombre}</div>
       ${a.descripcion?`<div class="act-desc">${a.descripcion}</div>`:''}
@@ -1634,6 +1666,7 @@ function renderActs(){
         <div style="display:flex;flex-wrap:wrap;gap:4px;">${areas||'<span style="font-size:10px;font-weight:700;color:var(--muted);">Sin áreas asignadas</span>'}</div>
       </div>
       ${a.materiales?`<div class="act-mats">📦 ${a.materiales}</div>`:''}
+      ${mats.length?`<div class="act-mat-list">${mats.map(m=>`<span class="act-mat-chip">${m}</span>`).join('')}</div>`:`<div class="act-mats">Sin materiales vinculados</div>`}
       <div class="act-actions">
         <button class="act-btn" onclick="openEditAct(${idx})">✏️ Editar</button>
         <button class="act-btn del" onclick="deleteAct(${idx})">🗑 Eliminar</button>
@@ -1647,6 +1680,9 @@ function openAddAct(){
   document.getElementById('aNom').value='';
   document.getElementById('aDesc').value='';
   document.getElementById('aMats').value='';
+  document.getElementById('aMatInput').value='';
+  actMaterialDraft=[];
+  renderActMaterialDraft();
   document.querySelectorAll('#actAreaChips .chip').forEach(c=>c.classList.remove('sel'));
   document.getElementById('btnDelAct').style.display='none';
   document.getElementById('actModal').classList.add('open');
@@ -1658,16 +1694,39 @@ function openEditAct(idx){
   document.getElementById('aNom').value=a.nombre||'';
   document.getElementById('aDesc').value=a.descripcion||'';
   document.getElementById('aMats').value=a.materiales||'';
+  document.getElementById('aMatInput').value='';
+  actMaterialDraft=parseMaterials(a.materiales);
+  renderActMaterialDraft();
   document.querySelectorAll('#actAreaChips .chip').forEach(c=>c.classList.toggle('sel',(a.areas||[]).includes(c.textContent)));
   document.getElementById('btnDelAct').style.display='block';
   document.getElementById('actModal').classList.add('open');
+}
+function renderActMaterialDraft(){
+  const list=document.getElementById('aMatList');
+  const hidden=document.getElementById('aMats');
+  if(hidden)hidden.value=actMaterialDraft.join(', ');
+  if(!list)return;
+  list.innerHTML=actMaterialDraft.length?actMaterialDraft.map((m,i)=>`<span class="act-mat-chip">${m}<button type="button" onclick="removeActMaterial(${i})">x</button></span>`).join(''):`<span style="font-size:11px;font-weight:700;color:var(--muted);">Sin materiales agregados.</span>`;
+}
+function addActMaterial(){
+  const inp=document.getElementById('aMatInput');
+  const values=parseMaterials(inp?.value||'');
+  if(!values.length)return;
+  actMaterialDraft=uniqueMaterials([...actMaterialDraft,...values]);
+  if(inp)inp.value='';
+  renderActMaterialDraft();
+}
+function removeActMaterial(idx){
+  actMaterialDraft.splice(idx,1);
+  renderActMaterialDraft();
 }
 function saveAct(){
   const nombre=document.getElementById('aNom').value.trim();
   if(!nombre){toast('⚠️ Ingresa el nombre de la actividad');return;}
   const areas=[...document.querySelectorAll('#actAreaChips .chip.sel')].map(c=>c.textContent);
   const prev=editActIdx>=0?actividades[editActIdx]:null;
-  const materialNames=parseMaterials(document.getElementById('aMats').value);
+  const inlineMaterials=parseMaterials(document.getElementById('aMatInput')?.value||'');
+  const materialNames=uniqueMaterials([...actMaterialDraft,...inlineMaterials]);
   upsertMaterialPrefs(materialNames);
   const obj={id:prev?.id||uid('act'),nombre,descripcion:document.getElementById('aDesc').value.trim(),materiales:materialNames.join(', '),areas};
   if(editActIdx>=0){actividades[editActIdx]=obj;toast('✅ Actividad actualizada');}
@@ -1675,6 +1734,7 @@ function saveAct(){
   saveActs();
   closeM('actModal');
   renderActs();
+  if(document.getElementById('viewMateriales')?.classList.contains('active'))renderMatBiblioteca();
 }
 async function deleteAct(idxArg){
   const idx=typeof idxArg==='number'?idxArg:editActIdx;
@@ -1698,6 +1758,7 @@ async function deleteAct(idxArg){
   saveActs();saveSessions();
   if(editActIdx>=0)closeM('actModal');
   renderActs();
+  if(document.getElementById('viewMateriales')?.classList.contains('active'))renderMatBiblioteca();
   renderSessions();
   toast('🗑 Actividad eliminada');
 }
@@ -1714,6 +1775,12 @@ function setMatTab(t){
   else{document.getElementById('matBiblioteca').style.display='block';renderMatBiblioteca();}
 }
 const getWkDates=off=>{const t=new Date(),dow=t.getDay(),m=new Date(t);m.setDate(t.getDate()-dow+1+(off*7));return Array.from({length:7},(_,i)=>{const d=new Date(m);d.setDate(m.getDate()+i);return d;});};
+const getSessionMaterials=s=>{
+  const fromSession=parseMaterials(s.materiales);
+  const fromActivities=(s.activityIds||[]).flatMap(id=>parseMaterials(actividades.find(a=>a.id===id)?.materiales));
+  return uniqueMaterials([...fromActivities,...fromSession]);
+};
+const getActivityMatsDate=dateStr=>{const ss=sessions.filter(s=>s.date===dateStr),r=[];ss.forEach(s=>{const src=getSessionPatients(s).map(p=>p.nombre).join(', ')+' ('+s.inicio+'-'+s.fin+')';getSessionMaterials(s).forEach(m=>r.push({name:m,source:src,date:dateStr}));});return r;};
 const getMatsDate=dateStr=>{const ss=sessions.filter(s=>s.date===dateStr),r=[];ss.forEach(s=>{const src=getSessionPatients(s).map(p=>p.nombre).join(', ')+' ('+s.inicio+'–'+s.fin+')';parseMaterials(s.materiales).forEach(m=>r.push({name:m,source:src,date:dateStr}));});return r;};
 const consolid=mats=>{const mp={};mats.forEach(m=>{const k=m.name.toLowerCase();if(!mp[k])mp[k]={name:m.name,count:1,sources:[m.source]};else{mp[k].count++;if(!mp[k].sources.includes(m.source))mp[k].sources.push(m.source);}});return Object.values(mp).sort((a,b)=>a.name.localeCompare(b.name));};
 function renderMaterialPills(name,{showFreq=true,clickableStock=true}={}){
@@ -1772,12 +1839,42 @@ function renderMatBiblioteca(){
   document.getElementById('matLibSearch')?.addEventListener('input',renderMatBiblioteca);
   document.getElementById('matLibInp')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addMaterialPreference();}});
 }
+function renderMatBiblioteca(){
+  const cont=document.getElementById('matBiblioteca');
+  if(!cont)return;
+  const q=(document.getElementById('matLibSearch')?.value||'').toLowerCase();
+  const acts=actividades
+    .map(a=>({...a,mats:parseMaterials(a.materiales)}))
+    .filter(a=>!q||(a.nombre+' '+(a.descripcion||'')+' '+a.mats.join(' ')).toLowerCase().includes(q));
+  const allMaterials=actividades.flatMap(a=>parseMaterials(a.materiales));
+  const uniqueCount=uniqueMaterials(allMaterials).length;
+  let h=`<div class="lib-search"><input class="extra-inp" id="matLibSearch" placeholder="Buscar actividad o material..." value="${(document.getElementById('matLibSearch')?.value||'').replace(/"/g,'&quot;')}"><button class="btn-extra" onclick="openAddAct()">+</button></div>`;
+  h+=`<div class="sum-row"><div class="sum-c"><div class="sum-n" style="color:var(--amber);">${uniqueCount}</div><div class="sum-l">Materiales</div></div><div class="sum-c"><div class="sum-n" style="color:var(--teal);">${actividades.length}</div><div class="sum-l">Actividades</div></div><div class="sum-c"><div class="sum-n" style="color:var(--purple);">${allMaterials.length}</div><div class="sum-l">Vinculos</div></div></div>`;
+  if(!actividades.length){
+    h+=`<div class="empty" style="padding:28px 16px;"><div class="ico">📦</div><p>Crea actividades y agrega sus materiales.<br>Aqui aparecera la biblioteca automaticamente.</p><button class="add-btn2" style="margin-top:14px;" onclick="openAddAct()">+ Nueva actividad</button></div>`;
+    cont.innerHTML=h;
+    document.getElementById('matLibSearch')?.addEventListener('input',renderMatBiblioteca);
+    return;
+  }
+  if(!acts.length){
+    h+=`<div class="empty" style="padding:28px 16px;"><div class="ico">🔎</div><p>No se encontraron materiales o actividades.</p></div>`;
+    cont.innerHTML=h;
+    document.getElementById('matLibSearch')?.addEventListener('input',renderMatBiblioteca);
+    return;
+  }
+  h+=acts.map(a=>{
+    const idx=actividades.findIndex(act=>act.id===a.id);
+    return `<div class="mat-activity-card"><div class="mat-activity-head"><div><div class="mat-activity-title">${a.nombre}</div>${a.descripcion?`<div class="lib-sub">${a.descripcion}</div>`:''}</div><span class="mat-activity-count">${a.mats.length} mat.</span></div>${a.mats.length?`<div class="act-mat-list">${a.mats.map(m=>`<span class="act-mat-chip">${m}</span>`).join('')}</div>${a.mats.map(m=>`<div class="mat-meta-row"><div style="flex:1;min-width:0;font-size:11px;font-weight:800;color:var(--text);">${m}</div>${renderMaterialPills(m)}</div>`).join('')}`:`<div class="mat-activity-empty">Esta actividad aun no tiene materiales vinculados.</div>`}<div class="act-actions"><button class="act-btn" onclick="openEditAct(${idx})">Editar actividad</button></div></div>`;
+  }).join('');
+  cont.innerHTML=h;
+  document.getElementById('matLibSearch')?.addEventListener('input',renderMatBiblioteca);
+}
 
 function renderMatSemana(){
   const dates=getWkDates(weekOff),tk=dk(new Date()),isNow=weekOff===0;
   const s0=dates[0],s6=dates[6];
   const sl=s0.getDate()+' '+MO[s0.getMonth()].substring(0,3)+' – '+s6.getDate()+' '+MO[s6.getMonth()].substring(0,3)+' '+s6.getFullYear();
-  const allMats=dates.flatMap(d=>getMatsDate(dk(d)));
+  const allMats=dates.flatMap(d=>getActivityMatsDate(dk(d)));
   const cons=consolid(allMats),extra=extraMats['w'+weekOff]||[];
   const totalSess=dates.reduce((a,d)=>a+sessions.filter(s=>s.date===dk(d)).length,0);
   const total=cons.length+extra.length;
@@ -1816,7 +1913,7 @@ function renderMatDia(){
     h+=`<div style="padding:0 16px 10px;font-size:14px;font-weight:800;color:var(--text);">${DL[dt.getDay()]} ${dt.getDate()} de ${MO[dt.getMonth()]}${selDayMat===today?' <span style="font-size:10px;background:var(--amber);color:#000;padding:2px 7px;border-radius:20px;margin-left:4px;">HOY</span>':''}</div>`;
     sessions.filter(s=>s.date===selDayMat).sort((a,b)=>a.inicio.localeCompare(b.inicio)).forEach(s=>{
       const pac=getSessionPatients(s).map(p=>p.nombre).join(', ');
-      const mats=parseMaterials(s.materiales);
+      const mats=getSessionMaterials(s);
       h+=`<div class="mat-block"><div style="padding:9px 12px;border-bottom:1px solid var(--border);"><div style="font-size:12px;font-weight:800;color:var(--text);">${pac}</div><div style="font-size:10px;font-weight:700;color:var(--muted);">${s.inicio}–${s.fin}</div></div>${mats.map(m=>{const k='d_'+selDayMat+'_'+m.toLowerCase().replace(/\s+/g,'_');const done=!!checkedMats[k];return`<div class="mat-item"><div class="mat-chk${done?' done':''}" onclick="toggleChk('${k}',this)"></div><div style="flex:1;"><div class="mat-txt${done?' done':''}">${m}</div>${renderMaterialPills(m)}</div></div>`;}).join('')}${!mats.length?`<div style="padding:9px 12px;font-size:11px;font-weight:600;color:var(--muted);">Sin materiales registrados</div>`:''}</div>`;
     });
     h+=`<div class="extra-row"><input class="extra-inp" id="extInpD" placeholder="+ Material extra para este día..." type="text"><button class="btn-extra" onclick="addExtraD()">＋</button></div>`;
@@ -1826,7 +1923,7 @@ function renderMatDia(){
 }
 function selDayMat2(d){selDayMat=d;renderMatDia();}
 function renderMatCompra(){
-  const allW=getWkDates(0).flatMap(d=>getMatsDate(dk(d)));
+  const allW=getWkDates(0).flatMap(d=>getActivityMatsDate(dk(d)));
   const missing=consolid(allW).filter(m=>!checkedMats['w0_'+m.name.toLowerCase().replace(/\s+/g,'_')]);
   const pending=compraList.filter(i=>!i.done),done=compraList.filter(i=>i.done);
   let h=`<div style="padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:15px;font-weight:800;color:var(--text);">🛒 Lista de compras</span>${done.length?`<button onclick="clearDone()" style="background:var(--coral-l);color:var(--coral);border:1.5px solid var(--coral-l);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;">Limpiar ✓</button>`:''}</div>`;
@@ -1849,6 +1946,7 @@ function toggleComp(i){compraList[i].done=!compraList[i].done;saveCompra();rende
 function delComp(i){compraList.splice(i,1);saveCompra();renderMatCompra();}
 function clearDone(){compraList=compraList.filter(i=>!i.done);saveCompra();renderMatCompra();}
 function shareList(){const dates=getWkDates(weekOff);const mats=dates.flatMap(d=>getMatsDate(dk(d)));const cons=consolid(mats);if(!cons.length)return toast('No hay materiales');const txt='📦 Materiales FonoKids\n\n'+cons.map(m=>`• ${m.name}${m.count>1?' (×'+m.count+')':''}`).join('\n');if(navigator.share)navigator.share({title:'Materiales',text:txt}).catch(()=>{});else navigator.clipboard.writeText(txt).then(()=>toast('📋 Copiado')).catch(()=>{});}
+function shareList(){const dates=getWkDates(weekOff);const mats=dates.flatMap(d=>getActivityMatsDate(dk(d)));const cons=consolid(mats);if(!cons.length)return toast('No hay materiales');const txt='📦 Materiales FonoKids\n\n'+cons.map(m=>`• ${m.name}${m.count>1?' (×'+m.count+')':''}`).join('\n');if(navigator.share)navigator.share({title:'Materiales',text:txt}).catch(()=>{});else navigator.clipboard.writeText(txt).then(()=>toast('📋 Copiado')).catch(()=>{});}
 function shareCompra(){if(!compraList.length)return toast('Lista vacía');const txt='🛒 Compras FonoKids\n\n'+compraList.filter(i=>!i.done).map(i=>`☐ ${i.name}`).join('\n');if(navigator.share)navigator.share({title:'Compras',text:txt}).catch(()=>{});else copyText(txt,'📋 Copiado');}
 
 // ── UTILS ──
@@ -1885,7 +1983,7 @@ function sw(id,el){
   document.getElementById(id).classList.add('active');el.classList.add('active');
   if(id==='viewPacientes')renderPacs();
   if(id==='viewActividades')renderActs();
-  if(id==='viewMateriales')setMatTab('semana');
+  if(id==='viewMateriales')setMatTab('biblioteca');
 }
 
 // ── CLOUD / AUTH ──
