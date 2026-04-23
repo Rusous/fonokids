@@ -780,7 +780,7 @@ try{extraMats=JSON.parse(localStorage.getItem('fk_v5_extra')||'{}');}catch(e){}
 try{materialPrefs=JSON.parse(localStorage.getItem('fk_v5_matprefs')||'{}');}catch(e){}
 
 let curDate=new Date(),selDate=new Date(),editSessIdx=-1,editPacIdx=-1,curPacIdx=-1;
-let clipboard=null,pmDate=new Date(),pmSelDate=null,selectedSessPacs=[];
+let clipboard=null,pmDate=new Date(),pmSelDates=[],selectedSessPacs=[];
 let selectedSessActs=[];
 let actMaterialDraft=[];
 let showArchivedActivities=false;
@@ -1509,29 +1509,45 @@ function copySess(idx){
 function clearClip(){clipboard=null;document.getElementById('clipBanner').classList.remove('show');renderSessions();}
 function openPasteModal(){
   if(!clipboard)return;
-  pmDate=new Date();pmSelDate=null;
+  pmDate=new Date();pmSelDates=[];
   const s=clipboard.data;
   document.getElementById('pasteSub').textContent=`Pegando: ${getSessionPatients(s).map(p=>p.nombre).join(', ')} (${s.inicio}–${s.fin})`;
   document.getElementById('btnConfPaste').disabled=true;
-  document.getElementById('pasteTgt').textContent='Selecciona un día';
+  document.getElementById('pasteTgt').textContent='Selecciona uno o más días';
   renderPmCal();document.getElementById('pasteModal').classList.add('open');
 }
 function renderPmCal(){
   const y=pmDate.getFullYear(),m=pmDate.getMonth();
   document.getElementById('pmLbl').textContent=MO[m]+' '+y;
   const first=new Date(y,m,1),last=new Date(y,m+1,0),sd=first.getDay();
-  const tk=dk(new Date()),sk=pmSelDate?dk(pmSelDate):'';
+  const tk=dk(new Date()),selectedKeys=new Set(pmSelDates.map(dk));
   let h='';DS.forEach(d=>{h+=`<div class="pm-dh">${d}</div>`;});
   for(let i=0;i<sd;i++){const d=new Date(y,m,1-sd+i);h+=`<div class="pm-d om">${d.getDate()}</div>`;}
-  for(let d=1;d<=last.getDate();d++){const dt=new Date(y,m,d),k=dk(dt);const cls=k===sk?'sp':k===tk?'td':'';h+=`<div class="pm-d ${cls}" onclick="pmSel(${y},${m},${d})">${d}</div>`;}
+  for(let d=1;d<=last.getDate();d++){const dt=new Date(y,m,d),k=dk(dt);const cls=selectedKeys.has(k)?'sp':k===tk?'td':'';h+=`<div class="pm-d ${cls}" onclick="pmSel(${y},${m},${d})">${d}</div>`;}
   document.getElementById('pmGrid').innerHTML=h;
 }
-function pmSel(y,m,d){pmSelDate=new Date(y,m,d);renderPmCal();document.getElementById('pasteTgt').textContent='📅 '+fmtDate(pmSelDate);document.getElementById('btnConfPaste').disabled=false;}
+function pmSel(y,m,d){
+  const picked=new Date(y,m,d),key=dk(picked);
+  const idx=pmSelDates.findIndex(date=>dk(date)===key);
+  if(idx>=0)pmSelDates.splice(idx,1);else pmSelDates.push(picked);
+  pmSelDates.sort((a,b)=>a-b);
+  renderPmCal();
+  document.getElementById('pasteTgt').textContent=pmSelDates.length?`📅 ${pmSelDates.length} día(s) seleccionados`:'Selecciona uno o más días';
+  document.getElementById('btnConfPaste').disabled=!pmSelDates.length;
+}
 function confirmPaste(){
-  if(!clipboard||!pmSelDate)return;
-  const n=syncSessionPatients(dc(clipboard.data));n.id=uid('sess');n.date=dk(pmSelDate);sessions.push(n);saveSessions();
-  closeM('pasteModal');selDate=new Date(pmSelDate);renderCal();renderSessions();updateStats();
-  toast('✅ Sesión pegada en '+fmtDate(pmSelDate));
+  if(!clipboard||!pmSelDates.length)return;
+  pmSelDates.forEach(date=>{
+    const n=syncSessionPatients(dc(clipboard.data));
+    n.id=uid('sess');
+    n.date=dk(date);
+    sessions.push(n);
+  });
+  saveSessions();
+  closeM('pasteModal');
+  selDate=new Date(pmSelDates[pmSelDates.length-1]);
+  renderCal();renderSessions();updateStats();
+  toast(`✅ Sesión pegada en ${pmSelDates.length} día(s)`);
 }
 document.getElementById('pmPrev').onclick=()=>{pmDate.setMonth(pmDate.getMonth()-1);renderPmCal();};
 document.getElementById('pmNext').onclick=()=>{pmDate.setMonth(pmDate.getMonth()+1);renderPmCal();};
