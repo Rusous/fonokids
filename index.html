@@ -8,6 +8,11 @@
 <title>FonoKids</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
 <script src="./app-config.js"></script>
+<script>
+if(location.hostname.endsWith('github.io')&&/\/fonokids\/?$/.test(location.pathname)){
+  location.replace('./index-cloud.html');
+}
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
