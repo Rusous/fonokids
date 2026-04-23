@@ -68,6 +68,15 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .day-c.hasSess::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--teal);}
 .day-c.today.hasSess::after{background:#fff;}
 .day-c.sel:not(.today){background:var(--surface2);border:2px solid var(--coral);}
+.day-c.all-done{background:var(--green-l);border:1.5px solid var(--green);color:var(--green);font-weight:900;}
+.day-c.has-pending{background:var(--amber-l);border:1.5px solid var(--amber);color:var(--amber);font-weight:900;}
+.day-c.has-missed{background:var(--coral-l);border:1.5px solid var(--coral);color:var(--coral-d);font-weight:900;}
+.day-c.mixed-status{background:linear-gradient(135deg,var(--amber-l) 0 50%,var(--coral-l) 50%);border:1.5px solid var(--amber);color:var(--text);font-weight:900;}
+.day-c.all-done::after{background:var(--green);}
+.day-c.has-pending::after{background:var(--amber);}
+.day-c.has-missed::after{background:var(--coral);}
+.day-c.mixed-status::after{width:14px;height:4px;border-radius:999px;background:linear-gradient(90deg,var(--amber) 0 50%,var(--coral) 50%);}
+.day-c.sel{box-shadow:0 0 0 2px rgba(255,255,255,0.18) inset;}
 
 /* SESSIONS */
 .sessions-wrap{padding:0 16px 132px;}
@@ -1135,14 +1144,25 @@ function updateStats(){
 }
 
 // ── CALENDAR ──
+function getDayStatusClass(dateKey){
+  const day=sessions.filter(s=>s.date===dateKey);
+  if(!day.length)return '';
+  const allDone=day.every(s=>s.estado==='realizada');
+  const hasPending=day.some(s=>(s.estado||'pendiente')==='pendiente');
+  const hasMissed=day.some(s=>s.estado==='no_realizada');
+  if(allDone)return 'all-done';
+  if(hasPending&&hasMissed)return 'mixed-status';
+  if(hasMissed)return 'has-missed';
+  return 'has-pending';
+}
 function renderCal(){
   const y=curDate.getFullYear(),m=curDate.getMonth();
   document.getElementById('mLabel').textContent=MO[m]+' '+y;
   const first=new Date(y,m,1),last=new Date(y,m+1,0),sd=first.getDay();
   const sd2=new Set(sessions.map(s=>s.date)),tk=dk(new Date()),sk=dk(selDate);
   let h='';DS.forEach(d=>{h+=`<div class="day-h">${d}</div>`;});
-  for(let i=0;i<sd;i++){const d=new Date(y,m,1-sd+i);h+=`<div class="day-c om${sd2.has(dk(d))?' hasSess':''}" onclick="selDay(${d.getFullYear()},${d.getMonth()},${d.getDate()})">${d.getDate()}</div>`;}
-  for(let d=1;d<=last.getDate();d++){const dt=new Date(y,m,d),k=dk(dt);const cls=[sd2.has(k)?'hasSess':'',k===tk?'today':k===sk?'sel':''].filter(Boolean).join(' ');h+=`<div class="day-c ${cls}" onclick="selDay(${y},${m},${d})">${d}</div>`;}
+  for(let i=0;i<sd;i++){const d=new Date(y,m,1-sd+i),k=dk(d);const cls=['om',sd2.has(k)?'hasSess':'',getDayStatusClass(k)].filter(Boolean).join(' ');h+=`<div class="day-c ${cls}" onclick="selDay(${d.getFullYear()},${d.getMonth()},${d.getDate()})">${d.getDate()}</div>`;}
+  for(let d=1;d<=last.getDate();d++){const dt=new Date(y,m,d),k=dk(dt);const cls=[sd2.has(k)?'hasSess':'',getDayStatusClass(k),k===tk?'today':k===sk?'sel':''].filter(Boolean).join(' ');h+=`<div class="day-c ${cls}" onclick="selDay(${y},${m},${d})">${d}</div>`;}
   document.getElementById('calGrid').innerHTML=h;
 }
 function selDay(y,m,d){selDate=new Date(y,m,d);renderCal();renderSessions();}
