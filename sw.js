@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fonokids-cloud-cache-v9';
+const CACHE_NAME = 'fonokids-cloud-cache-v10';
 const ASSETS = [
   './',
   './index-cloud.html',

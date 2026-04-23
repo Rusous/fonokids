@@ -131,6 +131,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .search-inp:focus{border-color:var(--teal);}
 .search-inp::placeholder{color:var(--muted);}
 .add-btn2{background:var(--teal);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap;}
+.tiny-filter-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:999px;padding:7px 9px;font-size:10px;font-weight:900;color:var(--muted);cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap;}
+.tiny-filter-btn.active{background:var(--coral-l);border-color:var(--coral);color:var(--coral-d);}
 
 .pat-card{background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);margin:0 16px 9px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.15s;}
 .pat-card:hover{border-color:var(--teal);transform:translateY(-1px);}
@@ -474,6 +476,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
     <input class="search-inp" id="searchAct" placeholder="🔍 Buscar actividad..." oninput="renderActs()">
     <button class="add-btn2" onclick="openAddAct()">＋ Nueva actividad</button>
   </div>
+  <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;"><button class="tiny-filter-btn" id="archivedActBtn" onclick="toggleArchivedActivities()">Archivadas</button></div>
   <div id="actList"></div>
 </div>
 
@@ -780,6 +783,7 @@ let curDate=new Date(),selDate=new Date(),editSessIdx=-1,editPacIdx=-1,curPacIdx
 let clipboard=null,pmDate=new Date(),pmSelDate=null,selectedSessPacs=[];
 let selectedSessActs=[];
 let actMaterialDraft=[];
+let showArchivedActivities=false;
 let materialsTouchedManually=false;
 let matTab='biblioteca',weekOff=0,selDayMat=null,reportSessIdx=-1;
 let editActIdx=-1;
@@ -1655,9 +1659,18 @@ async function delNota(pi,ni){
 }
 
 // ── ACTIVIDADES ──
+function toggleArchivedActivities(){
+  showArchivedActivities=!showArchivedActivities;
+  renderActs();
+}
 function renderActs(){
   const q=(document.getElementById('searchAct')?.value||'').toLowerCase();
-  const list=actividades.filter(a=>(!isActivityArchived(a)||q)&&(!q||(a.nombre+' '+(a.descripcion||'')+' '+(a.materiales||'')).toLowerCase().includes(q)));
+  const btn=document.getElementById('archivedActBtn');
+  if(btn){
+    btn.classList.toggle('active',showArchivedActivities);
+    btn.textContent=showArchivedActivities?'Ver activas':'Archivadas';
+  }
+  const list=actividades.filter(a=>(showArchivedActivities?isActivityArchived(a):!isActivityArchived(a))&&(!q||(a.nombre+' '+(a.descripcion||'')+' '+(a.materiales||'')).toLowerCase().includes(q)));
   const cont=document.getElementById('actList');
   if(!cont)return;
   if(!list.length){
