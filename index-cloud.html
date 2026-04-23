@@ -149,6 +149,9 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .act-desc{font-size:11px;font-weight:600;color:var(--muted);line-height:1.5;margin-bottom:8px;}
 .act-mats{font-size:10px;font-weight:700;color:var(--amber);margin-top:6px;}
 .act-card:has(.act-mat-list)>.act-mats{display:none;}
+.act-card.archived{opacity:0.72;border-style:dashed;}
+.act-status{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font-size:9px;font-weight:900;background:var(--surface2);color:var(--muted);border:1px solid var(--border);margin-bottom:6px;}
+.act-status.archived{background:var(--coral-l);border-color:var(--coral);color:var(--coral-d);}
 .act-mat-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
 .act-mat-chip{display:inline-flex;align-items:center;gap:5px;background:var(--amber-l);border:1px solid rgba(255,184,48,0.35);color:var(--amber);border-radius:999px;padding:4px 9px;font-size:10px;font-weight:800;}
 .act-mat-chip button{background:none;border:none;color:var(--amber);font-size:12px;font-weight:900;cursor:pointer;line-height:1;padding:0;}
@@ -939,6 +942,9 @@ function syncSessionPatients(s){
   s.pacientes=getSessionPatients(s);
   return s;
 }
+const isActivityArchived=a=>!!a?.archived;
+const getActiveActivities=()=>actividades.filter(a=>!isActivityArchived(a));
+const getSessionIdsForActivity=id=>sessions.filter(s=>(s.activityIds||[]).includes(id));
 function migrateData(){
   let changed=false;
   pacientes=pacientes.map(p=>{
@@ -1277,11 +1283,14 @@ function toggleSelPac(i){
 function renderActivitySelector(){
   const listEl=document.getElementById('actSelectorList');
   if(!listEl)return;
-  if(!actividades.length){
+  const availableActs=getActiveActivities();
+  const selectedArchived=selectedSessActs.map(id=>actividades.find(a=>a.id===id)).filter(isActivityArchived);
+  const options=[...availableActs,...selectedArchived.filter(a=>!availableActs.some(active=>active.id===a.id))];
+  if(!options.length){
     listEl.innerHTML=`<div class="act-selector"><div class="act-pick-empty">No hay actividades creadas todavía.</div></div>`;
     return;
   }
-  listEl.innerHTML=`<div class="act-selector">${actividades.map(a=>`<button type="button" class="act-pick${selectedSessActs.includes(a.id)?' sel':''}" onclick="toggleSessActivity('${a.id}')">${a.nombre}</button>`).join('')}</div>`;
+  listEl.innerHTML=`<div class="act-selector">${options.map(a=>`<button type="button" class="act-pick${selectedSessActs.includes(a.id)?' sel':''}" onclick="toggleSessActivity('${a.id}')">${a.nombre}${isActivityArchived(a)?' · archivada':''}</button>`).join('')}</div>`;
 }
 function toggleSessActivity(id){
   const idx=selectedSessActs.indexOf(id);
@@ -1648,7 +1657,7 @@ async function delNota(pi,ni){
 // ── ACTIVIDADES ──
 function renderActs(){
   const q=(document.getElementById('searchAct')?.value||'').toLowerCase();
-  const list=actividades.filter(a=>!q||(a.nombre+' '+(a.descripcion||'')+' '+(a.materiales||'')).toLowerCase().includes(q));
+  const list=actividades.filter(a=>(!isActivityArchived(a)||q)&&(!q||(a.nombre+' '+(a.descripcion||'')+' '+(a.materiales||'')).toLowerCase().includes(q)));
   const cont=document.getElementById('actList');
   if(!cont)return;
   if(!list.length){
@@ -1659,7 +1668,8 @@ function renderActs(){
     const idx=actividades.indexOf(a);
     const areas=(a.areas||[]).map(x=>`<span class="badge ${BM[x]||''}">${x}</span>`).join('');
     const mats=parseMaterials(a.materiales);
-    return `<div class="act-card">
+    return `<div class="act-card ${isActivityArchived(a)?'archived':''}">
+      ${isActivityArchived(a)?'<div class="act-status archived">Archivada</div>':''}
       <div class="act-title">${a.nombre}</div>
       ${a.descripcion?`<div class="act-desc">${a.descripcion}</div>`:''}
       <div class="act-meta">
@@ -1669,7 +1679,7 @@ function renderActs(){
       ${mats.length?`<div class="act-mat-list">${mats.map(m=>`<span class="act-mat-chip">${m}</span>`).join('')}</div>`:`<div class="act-mats">Sin materiales vinculados</div>`}
       <div class="act-actions">
         <button class="act-btn" onclick="openEditAct(${idx})">✏️ Editar</button>
-        <button class="act-btn del" onclick="deleteAct(${idx})">🗑 Eliminar</button>
+        <button class="act-btn del" onclick="deleteAct(${idx})">${isActivityArchived(a)?'🗑 Eliminar definitivo':'🗑 Eliminar'}</button>
       </div>
     </div>`;
   }).join('');
@@ -1728,7 +1738,7 @@ function saveAct(){
   const inlineMaterials=parseMaterials(document.getElementById('aMatInput')?.value||'');
   const materialNames=uniqueMaterials([...actMaterialDraft,...inlineMaterials]);
   upsertMaterialPrefs(materialNames);
-  const obj={id:prev?.id||uid('act'),nombre,descripcion:document.getElementById('aDesc').value.trim(),materiales:materialNames.join(', '),areas};
+  const obj={id:prev?.id||uid('act'),nombre,descripcion:document.getElementById('aDesc').value.trim(),materiales:materialNames.join(', '),areas,archived:prev?.archived||false};
   if(editActIdx>=0){actividades[editActIdx]=obj;toast('✅ Actividad actualizada');}
   else{actividades.push(obj);toast('✅ Actividad creada');}
   saveActs();
@@ -1739,28 +1749,49 @@ function saveAct(){
 async function deleteAct(idxArg){
   const idx=typeof idxArg==='number'?idxArg:editActIdx;
   if(idx<0||!actividades[idx])return;
+  const act=actividades[idx];
+  const usedSessions=getSessionIdsForActivity(act.id);
+  if(usedSessions.length&&!isActivityArchived(act)){
+    const okArchive=await askConfirm({
+      title:'Archivar actividad',
+      text:'"'+act.nombre+'" está vinculada a '+usedSessions.length+' sesión(es). Se archivará para conservar el historial y sus materiales, pero no aparecerá al agendar nuevas sesiones.',
+      confirmText:'Archivar actividad',
+      tone:'warn',
+      icon:'🧩'
+    });
+    if(!okArchive)return;
+    act.archived=true;
+    saveActs();
+    if(editActIdx>=0)closeM('actModal');
+    renderActs();
+    if(document.getElementById('viewMateriales')?.classList.contains('active'))renderMatBiblioteca();
+    renderActivitySelector();
+    toast('Actividad archivada');
+    return;
+  }
   const ok=await askConfirm({
-    title:'Eliminar actividad',
-    text:'"'+actividades[idx].nombre+'" se quitará de tu biblioteca y dejará de estar disponible al agendar.',
-    confirmText:'Sí, eliminar',
+    title:isActivityArchived(act)?'Eliminar actividad archivada':'Eliminar actividad',
+    text:isActivityArchived(act)?'"'+act.nombre+'" se eliminará definitivamente y se quitará de las sesiones antiguas.':'"'+act.nombre+'" se quitará de tu biblioteca y dejará de estar disponible al agendar.',
+    confirmText:isActivityArchived(act)?'Eliminar definitivo':'Sí, eliminar',
     tone:'danger',
     icon:'🧩'
   });
   if(!ok)return;
-  const removedId=actividades[idx].id;
-  const removedName=actividades[idx].nombre;
+  const removedId=act.id;
+  const removedName=act.nombre;
   actividades.splice(idx,1);
   sessions=sessions.map(s=>{
     const nextIds=(Array.isArray(s.activityIds)?s.activityIds:(s.activityId?[s.activityId]:[])).filter(id=>id!==removedId);
     const nextNames=(Array.isArray(s.activityNames)?s.activityNames:(s.activityName?[s.activityName]:[])).filter(name=>name!==removedName);
     return syncSessionPatients({...s,activityIds:nextIds,activityNames:nextNames,activityId:nextIds[0]||'',activityName:nextNames.join(', ')});
   });
-  saveActs();saveSessions();
+  saveActs();
+  saveSessions();
   if(editActIdx>=0)closeM('actModal');
   renderActs();
   if(document.getElementById('viewMateriales')?.classList.contains('active'))renderMatBiblioteca();
   renderSessions();
-  toast('🗑 Actividad eliminada');
+  toast(isActivityArchived(act)?'Actividad eliminada definitivamente':'Actividad eliminada');
 }
 
 // ── MATERIALES ──
