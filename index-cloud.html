@@ -566,6 +566,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
     <div id="fichaDiag"></div>
     <div id="fichaAreas"></div>
     <div id="fichaObs"></div>
+    <button class="btn-del-p" onclick="deletePac()" style="margin-top:10px;">Eliminar usuario</button>
     <div class="fs-title" style="margin-top:4px;">Notas de evolución</div>
     <div id="fichaNotas"></div>
     <button class="btn-add-nota" onclick="openNotaModal()">＋ Agregar nota de evolución</button>
@@ -705,7 +706,6 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
     </div>
     <div class="fg"><label class="fl">Observaciones</label><textarea class="fi" id="pObs" placeholder="Hipersensibilidades, alergias, preferencias..."></textarea></div>
     <button class="btn-sv" onclick="savePac()">Guardar ficha ✓</button>
-    <button class="btn-del-p" id="btnDelPac" style="display:none;" onclick="deletePac()">Eliminar usuario</button>
     <button class="btn-can" onclick="closeM('pacModal')">Cancelar</button>
   </div>
 </div>
@@ -1673,7 +1673,6 @@ function openAddPac(){
   ['pNom','pApe','pFn','pRut','pDiag','pApo','pTel','pObs'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pFrec').value='1 vez/semana';
   document.querySelectorAll('#pAreasC .chip').forEach(c=>c.classList.remove('sel'));
-  document.getElementById('btnDelPac').style.display='none';
   document.getElementById('pacModal').classList.add('open');
 }
 function openEditPac(){
@@ -1685,7 +1684,6 @@ function openEditPac(){
   document.getElementById('pTel').value=p.tel||'';document.getElementById('pObs').value=p.obs||'';
   document.getElementById('pFrec').value=p.frec||'1 vez/semana';
   document.querySelectorAll('#pAreasC .chip').forEach(c=>{c.classList.toggle('sel',(p.areas||[]).includes(c.textContent));});
-  document.getElementById('btnDelPac').style.display='block';
   document.getElementById('pacModal').classList.add('open');
 }
 function savePac(){
