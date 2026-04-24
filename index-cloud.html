@@ -68,6 +68,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .day-c.hasSess::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--teal);}
 .day-c.today.hasSess::after{background:#fff;}
 .day-c.sel:not(.today){background:var(--surface2);border:2px solid var(--coral);}
+.day-c.has-rescheduled{background:rgba(39,66,140,0.28);border:1.5px solid #4B7BFF;color:#C5D6FF;font-weight:900;}
+.day-c.has-rescheduled::after{background:#6F98FF;}
 .day-c.all-done{background:var(--green-l);border:1.5px solid var(--green);color:var(--green);font-weight:900;}
 .day-c.has-pending{background:var(--amber-l);border:1.5px solid var(--amber);color:var(--amber);font-weight:900;}
 .day-c.has-missed{background:var(--coral-l);border:1.5px solid var(--coral);color:var(--coral-d);font-weight:900;}
@@ -94,7 +96,9 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .sess-card{background:var(--surface);border-radius:var(--r);padding:12px 14px;margin-bottom:9px;border:1.5px solid var(--border);transition:all 0.15s;}
 .sess-card:hover{border-color:var(--coral);}
 .sess-card.copied{border-color:var(--teal);background:var(--teal-l);}
+.sess-card.rescheduled{border-color:#4B7BFF;box-shadow:0 0 0 1px rgba(111,152,255,0.18) inset;}
 .sess-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.rescheduled-note{margin-bottom:6px;font-size:10px;font-weight:800;color:#9DB8FF;}
 .time-badge{background:var(--coral-l);color:var(--coral-d);font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;white-space:nowrap;}
 
 .badge{display:inline-block;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;color:#fff;}
@@ -938,6 +942,7 @@ function syncSessionPatients(s){
   s.estado=['pendiente','realizada','no_realizada'].includes(s.estado)?s.estado:'pendiente';
   s.informe=s.informe||'';
   s.direccion=(s.direccion||'').trim();
+  s.reagendadaDesde=s.reagendadaDesde||'';
   const legacyIds=(Array.isArray(s.activityIds)?s.activityIds:[s.activityId].filter(Boolean)).filter(Boolean);
   const legacyNames=(Array.isArray(s.activityNames)?s.activityNames:[s.activityName].filter(Boolean)).filter(Boolean);
   s.activityIds=[...new Set(legacyIds)];
@@ -1190,9 +1195,11 @@ function updateStats(){
 function getDayStatusClass(dateKey){
   const day=sessions.filter(s=>s.date===dateKey);
   if(!day.length)return '';
+  const hasRescheduled=day.some(s=>!!s.reagendadaDesde);
   const allDone=day.every(s=>s.estado==='realizada');
   const hasPending=day.some(s=>(s.estado||'pendiente')==='pendiente');
   const hasMissed=day.some(s=>s.estado==='no_realizada');
+  if(hasRescheduled)return 'has-rescheduled';
   if(allDone)return 'all-done';
   if(hasPending&&hasMissed)return 'mixed-status';
   if(hasMissed)return 'has-missed';
@@ -1219,11 +1226,13 @@ function renderSessions(){
     const idx=sessions.indexOf(s),pac=getSessionPatients(s);
     const done=s.estado==='realizada';
     const missed=s.estado==='no_realizada';
+    const rescheduled=!!s.reagendadaDesde;
+    const rescheduledText=rescheduled?fmtF(s.reagendadaDesde):'';
     const areas=(s.areas||[]).map(a=>`<span class="badge ${BM[a]||''}">${a}</span>`).join('');
     const avatars=pac.slice(0,4).map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="av" style="background:${bg};color:${fg};width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;border:2px solid var(--bg2);margin-left:${i>0?'-7px':'0'}">${ini(p.nombre)}</div>`;}).join('');
     const activityNames=(Array.isArray(s.activityNames)&&s.activityNames.length?s.activityNames:(s.activityName?[s.activityName]:[])).filter(Boolean);
     const isCopied=clipboard&&clipboard.srcIdx===idx;
-    return`<div class="sess-card${isCopied?' copied':''}">
+    return`<div class="sess-card${isCopied?' copied':''}${rescheduled?' rescheduled':''}">
       <div class="sess-hdr">
         <span class="time-badge">${s.inicio}–${s.fin}</span>
         <div style="flex:1;display:flex;align-items:center;gap:7px;justify-content:flex-end;">
@@ -1234,6 +1243,7 @@ function renderSessions(){
       ${pac.length===1?`<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:5px;">${pac[0].nombre} <span style="font-size:11px;color:var(--muted);">(${pac[0].edad})</span></div>`:''}
       ${pac.length>1?`<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:7px;">${pac.map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="pac-chip"><div class="av" style="background:${bg};color:${fg};width:22px;height:22px;font-size:9px;">${ini(p.nombre)}</div><span class="pac-name">${p.nombre}</span><span class="pac-age">${p.edad}</span></div>`;}).join('')}</div>`:''}
       ${activityNames.length?`<div style="font-size:10px;font-weight:800;color:var(--amber);margin-bottom:6px;">🧩 ${activityNames.join(' · ')}</div>`:''}
+      ${rescheduled?`<div class="rescheduled-note">Reagendado del día ${rescheduledText}</div>`:''}
       ${areas?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px;">${areas}</div>`:''}
       ${s.direccion?`<div style="font-size:10px;color:var(--teal-d);font-weight:700;margin-bottom:5px;">📍 ${s.direccion}</div>`:''}
       ${s.materiales?`<div style="font-size:10px;color:var(--muted);font-weight:600;">📦 ${s.materiales.split(',').slice(0,3).map(m=>m.trim()).join(', ')}</div>`:''}
@@ -1566,6 +1576,8 @@ function pmSel(y,m,d){
 function confirmPaste(){
   if(pmMode==='reschedule'){
     if(rescheduleSessIdx<0||!pmSelDates.length)return;
+    const previousDate=sessions[rescheduleSessIdx].date;
+    sessions[rescheduleSessIdx].reagendadaDesde=sessions[rescheduleSessIdx].reagendadaDesde||previousDate;
     sessions[rescheduleSessIdx].date=dk(pmSelDates[0]);
     saveSessions();
     closeM('pasteModal');
