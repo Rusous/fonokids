@@ -433,7 +433,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
   <div class="stats-row">
     <div class="stat-card c"><div class="stat-num" id="stMes">0</div><div class="stat-label">Este mes</div></div>
     <div class="stat-card t"><div class="stat-num" id="stHoy">0</div><div class="stat-label">Hoy</div></div>
-    <div class="stat-card a"><div class="stat-num" id="stPac">0</div><div class="stat-label">Pacientes</div></div>
+    <div class="stat-card a"><div class="stat-num" id="stPac">0</div><div class="stat-label">Usuarios</div></div>
   </div>
   <div class="section">
     <div class="section-header">
@@ -464,7 +464,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 <!-- PACIENTES -->
 <div id="viewPacientes" class="view">
   <div class="topbar">
-    <input class="search-inp" id="searchPac" placeholder="🔍 Buscar paciente..." oninput="renderPacs()">
+    <input class="search-inp" id="searchPac" placeholder="🔍 Buscar usuario..." oninput="renderPacs()">
     <button class="add-btn2" onclick="openAddPac()">＋ Nueva ficha</button>
   </div>
   <div id="patList"></div>
@@ -496,7 +496,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 
 <nav class="nav-bar">
   <div class="nav-item active" onclick="sw('viewCalendar',this)"><span class="nav-icon">📅</span>Agenda</div>
-  <div class="nav-item" onclick="sw('viewPacientes',this)"><span class="nav-icon">👶</span>Pacientes</div>
+  <div class="nav-item" onclick="sw('viewPacientes',this)"><span class="nav-icon">👶</span>Usuarios</div>
   <div class="nav-item" onclick="sw('viewActividades',this)"><span class="nav-icon">🧩</span>Actividades</div>
   <div class="nav-item" onclick="sw('viewMateriales',this)"><span class="nav-icon">🛒</span>Materiales</div>
   <div class="nav-item" onclick="openCloudPanel()"><span class="nav-icon">⚙️</span>Ajustes</div>
@@ -580,7 +580,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
       <div><label class="fl">Hora fin</label><input class="fi" id="sFin" type="time" value="09:45"></div>
     </div>
     <div class="fg">
-      <label class="fl">Pacientes <span id="selPacCount" style="color:var(--teal);font-size:11px;"></span></label>
+      <label class="fl">Usuarios <span id="selPacCount" style="color:var(--teal);font-size:11px;"></span></label>
       <div id="selPacsTop" class="selected-pacs" style="margin-bottom:5px;"></div>
       <div id="pacSelectorList"></div>
       <div class="hint" id="selPacHint"></div>
@@ -669,7 +669,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title" id="pacTitleM">Nueva ficha 👶</div>
-    <div class="modal-sub">Datos del paciente</div>
+    <div class="modal-sub">Datos del usuario</div>
     <div class="frow2" style="margin-bottom:14px;">
       <div class="fg" style="margin-bottom:0;"><label class="fl">Nombre</label><input class="fi" id="pNom" placeholder="Martina" type="text"></div>
       <div class="fg" style="margin-bottom:0;"><label class="fl">Apellido</label><input class="fi" id="pApe" placeholder="González" type="text"></div>
@@ -700,7 +700,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
     </div>
     <div class="fg"><label class="fl">Observaciones</label><textarea class="fi" id="pObs" placeholder="Hipersensibilidades, alergias, preferencias..."></textarea></div>
     <button class="btn-sv" onclick="savePac()">Guardar ficha ✓</button>
-    <button class="btn-del-p" id="btnDelPac" style="display:none;" onclick="deletePac()">Eliminar paciente</button>
+    <button class="btn-del-p" id="btnDelPac" style="display:none;" onclick="deletePac()">Eliminar usuario</button>
     <button class="btn-can" onclick="closeM('pacModal')">Cancelar</button>
   </div>
 </div>
@@ -1258,10 +1258,10 @@ function buildPacSelector(){
   const countEl=document.getElementById('selPacCount');
   if(!pacientes.length){
     top.innerHTML='';
-    listEl.innerHTML=`<div class="no-pacs-msg">⚠️ No hay pacientes registrados.<br>Ve a <strong>Pacientes</strong> y crea una ficha primero.</div>`;
+    listEl.innerHTML=`<div class="no-pacs-msg">⚠️ No hay usuarios registrados.<br>Ve a <strong>Usuarios</strong> y crea una ficha primero.</div>`;
     hint.textContent='';countEl.textContent='';return;
   }
-  hint.textContent='Selecciona uno o varios pacientes.';
+  hint.textContent='Selecciona uno o varios usuarios.';
   countEl.textContent=selectedSessPacs.length?`(${selectedSessPacs.length} seleccionado${selectedSessPacs.length>1?'s':''})` :'';
   top.innerHTML=selectedSessPacs.map(i=>{
     const p=pacientes[i];const[bg,fg]=AVC[i%AVC.length];
@@ -1370,7 +1370,7 @@ function openEditSess(idx){
   buildPacSelector();document.getElementById('sessModal').classList.add('open');
 }
 function saveSess(){
-  if(!selectedSessPacs.length){toast('⚠️ Selecciona al menos un paciente');return;}
+  if(!selectedSessPacs.length){toast('⚠️ Selecciona al menos un usuario');return;}
   const inicio=document.getElementById('sInicio').value,fin=document.getElementById('sFin').value;
   if(!inicio||!fin){toast('⚠️ Completa el horario');return;}
   if(inicio>=fin){toast('⚠️ La hora de fin debe ser mayor al inicio');return;}
@@ -1453,13 +1453,13 @@ function copyText(txt,okMsg){
 function copySessionReport(idx){
   const s=sessions[idx];
   if(!s||!s.informe){toast('No hay informe para copiar');return;}
-  const pacNames=getSessionPatients(s).map(p=>p.nombre).join(', ')||'Sin pacientes';
+  const pacNames=getSessionPatients(s).map(p=>p.nombre).join(', ')||'Sin usuarios';
   const activityNames=(Array.isArray(s.activityNames)&&s.activityNames.length?s.activityNames:(s.activityName?[s.activityName]:[])).filter(Boolean);
   const activityLabel=activityNames.length?activityNames.join(', '):'Sin actividad';
   const direccion=s.direccion||'Sin dirección';
   const d=new Date(s.date+'T12:00:00');
   const fecha=`${DL[d.getDay()]} ${d.getDate()} de ${MO[d.getMonth()]} de ${d.getFullYear()}`;
-  const txt=`Informe de sesión\n\nFecha: ${fecha}\nHora: ${s.inicio}–${s.fin}\nPacientes: ${pacNames}\nActividades: ${activityLabel}\nDirección: ${direccion}\n\nInforme: ${s.informe}`;
+  const txt=`Informe de sesión\n\nFecha: ${fecha}\nHora: ${s.inicio}–${s.fin}\nUsuarios: ${pacNames}\nActividades: ${activityLabel}\nDirección: ${direccion}\n\nInforme: ${s.informe}`;
   copyText(txt,'📋 Informe copiado');
 }
 function escapeHtml(txt=''){
@@ -1558,7 +1558,7 @@ function renderPacs(){
   let list=pacientes.filter(p=>!q||(p.nombre+' '+p.apellido+' '+(p.diag||'')).toLowerCase().includes(q));
   const cont=document.getElementById('patList');
   if(!list.length){
-    cont.innerHTML=`<div class="empty" style="padding:40px 16px;"><div class="ico">👶</div><p>${q?'No se encontraron pacientes.':'Sin fichas aún.<br>¡Crea la primera para poder agendar sesiones!'}</p><button class="add-btn2" style="margin-top:14px;" onclick="openAddPac()">＋ Nueva ficha</button></div>`;return;
+    cont.innerHTML=`<div class="empty" style="padding:40px 16px;"><div class="ico">👶</div><p>${q?'No se encontraron usuarios.':'Sin fichas aún.<br>¡Crea la primera para poder agendar sesiones!'}</p><button class="add-btn2" style="margin-top:14px;" onclick="openAddPac()">＋ Nueva ficha</button></div>`;return;
   }
   cont.innerHTML=list.map(p=>{
     const idx=pacientes.indexOf(p);const[bg,fg]=AVC[idx%AVC.length];
@@ -1665,7 +1665,7 @@ function saveNota(){const txt=document.getElementById('notaTxt').value.trim();if
 async function delNota(pi,ni){
   const ok=await askConfirm({
     title:'Eliminar nota',
-    text:'Esta nota de evolución se borrará de la ficha del paciente.',
+    text:'Esta nota de evolución se borrará de la ficha del usuario.',
     confirmText:'Eliminar nota',
     tone:'warn',
     icon:'📝'
