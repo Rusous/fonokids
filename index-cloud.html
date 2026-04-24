@@ -799,6 +799,7 @@ let pendingRemoteSync=localStorage.getItem(PENDING_SYNC_KEY)==='1';
 let restoredSessionThisLaunch=false;
 let sessionRestoreMessage='';
 let remoteActivitiesColumnSupported='unknown';
+let lastRemoteUpdatedAt='';
 function loadSupabaseConfig(){
   let stored={};
   try{stored=JSON.parse(localStorage.getItem('fk_supabase_config')||'{}');}catch(e){}
@@ -826,6 +827,7 @@ function persistLocalState(){
 function clearLocalUserState(){
   sessions=[];pacientes=[];actividades=[];compraList=[];checkedMats={};extraMats={};materialPrefs={};
   clipboard=null;selectedSessPacs=[];editSessIdx=-1;editPacIdx=-1;curPacIdx=-1;editActIdx=-1;reportSessIdx=-1;
+  lastRemoteUpdatedAt='';
   setPendingSync(false);
   ['fk_v5_sess','fk_v5_pacs','fk_v5_acts','fk_v5_compra','fk_v5_chk','fk_v5_extra','fk_v5_matprefs'].forEach(k=>{
     try{localStorage.removeItem(k);}catch(e){}
@@ -897,6 +899,8 @@ function getAllKnownMaterials(){
 const fullName=p=>[p?.nombre,p?.apellido].filter(Boolean).join(' ').trim();
 const patientSnapshot=p=>({id:p.id,nombre:fullName(p),edad:calcEdad(p.fechaNac)});
 const getPatientById=id=>pacientes.find(p=>p.id===id)||null;
+const isPatientArchived=p=>!!p?.archived;
+const getActivePatients=()=>pacientes.filter(p=>!isPatientArchived(p));
 const hasLocalData=()=>!!(pacientes.length||actividades.length||sessions.length||compraList.length||Object.keys(checkedMats).length||Object.keys(extraMats).length||Object.keys(materialPrefs).length);
 const snapshotState=({legacyActivitiesFallback=false}={})=>{
   const extra=dc(extraMats);
@@ -927,6 +931,7 @@ function applyRemoteState(state){
   checkedMats=dc(state?.checked_mats||{});
   materialPrefs=dc(remoteMaterialPrefs);
   extraMats=rawExtra;
+  lastRemoteUpdatedAt=state?.updated_at||'';
   persistLocalState();
   isHydratingRemote=false;
 }
@@ -1104,6 +1109,22 @@ async function upsertRemoteState(showToast){
     setSyncNote('No se pudo conectar con Supabase. Cambios pendientes de sincronizar.');
     return false;
   }
+  if(lastRemoteUpdatedAt){
+    const remoteCheck=await fetchRemoteStateRow();
+    if(remoteCheck?.error){
+      setPendingSync(true);
+      setSyncNote('No se pudo validar la nube antes de sincronizar. Cambios pendientes.');
+      if(showToast)toast('No se pudo sincronizar');
+      return false;
+    }
+    const remoteUpdatedAt=remoteCheck?.data?.updated_at||'';
+    if(remoteUpdatedAt&&remoteUpdatedAt!==lastRemoteUpdatedAt){
+      setPendingSync(true);
+      setSyncNote('La nube cambió desde otro dispositivo. Revisa antes de sobrescribir.');
+      if(showToast)toast('Hay una versión más nueva en la nube');
+      return false;
+    }
+  }
   let payload=buildRemotePayload(false);
   let {error}=await supabase.from('app_state').upsert(payload);
   if(error&&isActivitiesColumnError(error)){
@@ -1120,6 +1141,7 @@ async function upsertRemoteState(showToast){
     return false;
   }
   setPendingSync(false);
+  lastRemoteUpdatedAt=payload.updated_at;
   setSyncNote('Guardado automatico en la nube');
   showSaveHint('Sincronizado');
   if(showToast)toast('☁️ Datos sincronizados');
@@ -1187,7 +1209,7 @@ function updateStats(){
   const n=new Date(),mo=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
   document.getElementById('stMes').textContent=sessions.filter(s=>s.date.startsWith(mo)).length;
   document.getElementById('stHoy').textContent=sessions.filter(s=>s.date===dk(n)).length;
-  document.getElementById('stPac').textContent=pacientes.length;
+  document.getElementById('stPac').textContent=getActivePatients().length;
 }
 
 // ── CALENDAR ──
@@ -1229,8 +1251,10 @@ function renderSessions(){
     const rescheduled=!!s.reagendadaDesde;
     const rescheduledText=rescheduled?fmtF(s.reagendadaDesde):'';
     const areas=(s.areas||[]).map(a=>`<span class="badge ${BM[a]||''}">${a}</span>`).join('');
-    const avatars=pac.slice(0,4).map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="av" style="background:${bg};color:${fg};width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;border:2px solid var(--bg2);margin-left:${i>0?'-7px':'0'}">${ini(p.nombre)}</div>`;}).join('');
+    const avatars=pac.slice(0,4).map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="av" style="background:${bg};color:${fg};width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;border:2px solid var(--bg2);margin-left:${i>0?'-7px':'0'}">${safeText(ini(p.nombre))}</div>`;}).join('');
     const activityNames=(Array.isArray(s.activityNames)&&s.activityNames.length?s.activityNames:(s.activityName?[s.activityName]:[])).filter(Boolean);
+    const safeActivityLabel=activityNames.map(safeText).join(' · ');
+    const safeMaterials=parseMaterials(s.materiales).slice(0,3).map(safeText).join(', ');
     const isCopied=clipboard&&clipboard.srcIdx===idx;
     return`<div class="sess-card${isCopied?' copied':''}${rescheduled?' rescheduled':''}">
       <div class="sess-hdr">
@@ -1240,13 +1264,13 @@ function renderSessions(){
           <span style="font-size:11px;font-weight:700;color:var(--muted);">${pac.length} pac.</span>
         </div>
       </div>
-      ${pac.length===1?`<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:5px;">${pac[0].nombre} <span style="font-size:11px;color:var(--muted);">(${pac[0].edad})</span></div>`:''}
-      ${pac.length>1?`<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:7px;">${pac.map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="pac-chip"><div class="av" style="background:${bg};color:${fg};width:22px;height:22px;font-size:9px;">${ini(p.nombre)}</div><span class="pac-name">${p.nombre}</span><span class="pac-age">${p.edad}</span></div>`;}).join('')}</div>`:''}
-      ${activityNames.length?`<div style="font-size:10px;font-weight:800;color:var(--amber);margin-bottom:6px;">🧩 ${activityNames.join(' · ')}</div>`:''}
-      ${rescheduled?`<div class="rescheduled-note">Reagendado del día ${rescheduledText}</div>`:''}
+      ${pac.length===1?`<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:5px;">${safeText(pac[0].nombre)} <span style="font-size:11px;color:var(--muted);">(${safeText(pac[0].edad)})</span></div>`:''}
+      ${pac.length>1?`<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:7px;">${pac.map((p,i)=>{const[bg,fg]=AVC[i%AVC.length];return`<div class="pac-chip"><div class="av" style="background:${bg};color:${fg};width:22px;height:22px;font-size:9px;">${safeText(ini(p.nombre))}</div><span class="pac-name">${safeText(p.nombre)}</span><span class="pac-age">${safeText(p.edad)}</span></div>`;}).join('')}</div>`:''}
+      ${activityNames.length?`<div style="font-size:10px;font-weight:800;color:var(--amber);margin-bottom:6px;">🧩 ${safeActivityLabel}</div>`:''}
+      ${rescheduled?`<div class="rescheduled-note">Reagendado del día ${safeText(rescheduledText)}</div>`:''}
       ${areas?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px;">${areas}</div>`:''}
-      ${s.direccion?`<div style="font-size:10px;color:var(--teal-d);font-weight:700;margin-bottom:5px;">📍 ${s.direccion}</div>`:''}
-      ${s.materiales?`<div style="font-size:10px;color:var(--muted);font-weight:600;">📦 ${s.materiales.split(',').slice(0,3).map(m=>m.trim()).join(', ')}</div>`:''}
+      ${s.direccion?`<div style="font-size:10px;color:var(--teal-d);font-weight:700;margin-bottom:5px;">📍 ${safeText(s.direccion)}</div>`:''}
+      ${safeMaterials?`<div style="font-size:10px;color:var(--muted);font-weight:600;">📦 ${safeMaterials}</div>`:''}
       <div class="status-row">
         <button class="status-btn pending ${s.estado==='pendiente'?'active':''}" onclick="markSessionPending(${idx})">Pendiente</button>
         <button class="status-btn done ${done?'active':''}" onclick="openReportModal(${idx})">${done?'Editar informe':'Realizada'}</button>
@@ -1269,7 +1293,8 @@ function buildPacSelector(){
   const listEl=document.getElementById('pacSelectorList');
   const hint=document.getElementById('selPacHint');
   const countEl=document.getElementById('selPacCount');
-  if(!pacientes.length){
+  const activePatients=getActivePatients();
+  if(!activePatients.length){
     top.innerHTML='';
     listEl.innerHTML=`<div class="no-pacs-msg">⚠️ No hay usuarios registrados.<br>Ve a <strong>Usuarios</strong> y crea una ficha primero.</div>`;
     hint.textContent='';countEl.textContent='';return;
@@ -1278,15 +1303,16 @@ function buildPacSelector(){
   countEl.textContent=selectedSessPacs.length?`(${selectedSessPacs.length} seleccionado${selectedSessPacs.length>1?'s':''})` :'';
   top.innerHTML=selectedSessPacs.map(i=>{
     const p=pacientes[i];const[bg,fg]=AVC[i%AVC.length];
-    return`<div class="sel-pac-row"><div class="av" style="background:${bg};color:${fg};width:26px;height:26px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;">${ini(p.nombre+' '+p.apellido)}</div><div style="flex:1;"><div class="sel-pac-nm">${p.nombre} ${p.apellido}</div><div class="sel-pac-age">${calcEdad(p.fechaNac)}</div></div><button class="btn-rm-p" onclick="toggleSelPac(${i})">✕</button></div>`;
+    return`<div class="sel-pac-row"><div class="av" style="background:${bg};color:${fg};width:26px;height:26px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;">${safeText(ini(p.nombre+' '+p.apellido))}</div><div style="flex:1;"><div class="sel-pac-nm">${safeText(p.nombre)} ${safeText(p.apellido)}</div><div class="sel-pac-age">${safeText(calcEdad(p.fechaNac))}${isPatientArchived(p)?' · archivado':''}</div></div><button class="btn-rm-p" onclick="toggleSelPac(${i})">✕</button></div>`;
   }).join('');
   const wrap=document.createElement('div');wrap.className='pac-selector';
-  pacientes.forEach((p,i)=>{
+  activePatients.forEach(p=>{
+    const i=pacientes.indexOf(p);
     const isSel=selectedSessPacs.includes(i);
     const[bg,fg]=AVC[i%AVC.length];
     const item=document.createElement('div');
     item.className='pac-sel-item'+(isSel?' selected-item':'');
-    item.innerHTML=`<div class="psc${isSel?' on':''}" id="psc${i}"></div><div class="av" style="background:${bg};color:${fg};width:28px;height:28px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ini(p.nombre+' '+p.apellido)}</div><div><div class="pac-sel-name">${p.nombre} ${p.apellido}</div><div class="pac-sel-meta">${calcEdad(p.fechaNac)}${p.diag?' · '+p.diag:''}</div></div>`;
+    item.innerHTML=`<div class="psc${isSel?' on':''}" id="psc${i}"></div><div class="av" style="background:${bg};color:${fg};width:28px;height:28px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${safeText(ini(p.nombre+' '+p.apellido))}</div><div><div class="pac-sel-name">${safeText(p.nombre)} ${safeText(p.apellido)}</div><div class="pac-sel-meta">${safeText(calcEdad(p.fechaNac))}${p.diag?' · '+safeText(p.diag):''}</div></div>`;
     item.onclick=()=>toggleSelPac(i);
     wrap.appendChild(item);
   });
@@ -1307,7 +1333,7 @@ function renderActivitySelector(){
     listEl.innerHTML=`<div class="act-selector"><div class="act-pick-empty">No hay actividades creadas todavía.</div></div>`;
     return;
   }
-  listEl.innerHTML=`<div class="act-selector">${options.map(a=>`<button type="button" class="act-pick${selectedSessActs.includes(a.id)?' sel':''}" onclick="toggleSessActivity('${a.id}')">${a.nombre}${isActivityArchived(a)?' · archivada':''}</button>`).join('')}</div>`;
+  listEl.innerHTML=`<div class="act-selector">${options.map(a=>`<button type="button" class="act-pick${selectedSessActs.includes(a.id)?' sel':''}" onclick="toggleSessActivity('${a.id}')">${safeText(a.nombre)}${isActivityArchived(a)?' · archivada':''}</button>`).join('')}</div>`;
 }
 function toggleSessActivity(id){
   const idx=selectedSessActs.indexOf(id);
@@ -1498,6 +1524,8 @@ function escapeHtml(txt=''){
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
 }
+function safeText(txt=''){return escapeHtml(String(txt||''));}
+function safeTelHref(txt=''){return 'tel:'+String(txt||'').replace(/[^\d+]/g,'');}
 function renderReportContent(text,idx){
   const safe=escapeHtml(text||'');
   if(!text)return '';
@@ -1605,7 +1633,7 @@ document.getElementById('pmNext').onclick=()=>{pmDate.setMonth(pmDate.getMonth()
 // ── PACIENTES ──
 function renderPacs(){
   const q=(document.getElementById('searchPac')||{value:''}).value.toLowerCase();
-  let list=pacientes.filter(p=>!q||(p.nombre+' '+p.apellido+' '+(p.diag||'')).toLowerCase().includes(q));
+  let list=getActivePatients().filter(p=>!q||(p.nombre+' '+p.apellido+' '+(p.diag||'')).toLowerCase().includes(q));
   const cont=document.getElementById('patList');
   if(!list.length){
     cont.innerHTML=`<div class="empty" style="padding:40px 16px;"><div class="ico">👶</div><p>${q?'No se encontraron usuarios.':'Sin fichas aún.<br>¡Crea la primera para poder agendar sesiones!'}</p><button class="add-btn2" style="margin-top:14px;" onclick="openAddPac()">＋ Nueva ficha</button></div>`;return;
@@ -1615,10 +1643,10 @@ function renderPacs(){
     const nsess=getSessPac(p).length;
     const badges=(p.areas||[]).slice(0,3).map(a=>`<span class="badge ${BM[a]||''}">${a}</span>`).join('');
     return`<div class="pat-card" onclick="openFicha(${idx})">
-      <div class="pat-av" style="background:${bg};color:${fg};">${ini(p.nombre+' '+p.apellido)}</div>
+      <div class="pat-av" style="background:${bg};color:${fg};">${safeText(ini(p.nombre+' '+p.apellido))}</div>
       <div class="pat-info">
-        <div class="pat-name">${p.nombre} ${p.apellido}</div>
-        <div class="pat-meta">${calcEdad(p.fechaNac)}${p.diag?' · '+p.diag:''}</div>
+        <div class="pat-name">${safeText(p.nombre)} ${safeText(p.apellido)}</div>
+        <div class="pat-meta">${safeText(calcEdad(p.fechaNac))}${p.diag?' · '+safeText(p.diag):''}</div>
         <div class="pat-badges">${badges}<span style="font-size:10px;font-weight:700;color:var(--teal);margin-left:3px;">${nsess} ses.</span></div>
       </div>
       <div style="color:var(--muted);font-size:16px;">›</div>
@@ -1645,26 +1673,26 @@ function renderFicha(idx){
     <div class="fst"><div class="fst-n" style="color:var(--teal);">${(p.notas||[]).length}</div><div class="fst-l">Notas</div></div>
     <div class="fst"><div class="fst-n" style="color:var(--purple);">${areas.size}</div><div class="fst-l">Áreas</div></div>`;
   document.getElementById('fichaInfo').innerHTML=`
-    ${p.fechaNac?`<div class="frow"><div class="fkey">Nacimiento</div><div class="fval">${fmtF(p.fechaNac)}</div></div>`:''}
-    ${p.rut?`<div class="frow"><div class="fkey">RUT</div><div class="fval">${p.rut}</div></div>`:''}
-    ${p.apo?`<div class="frow"><div class="fkey">Apoderado</div><div class="fval">${p.apo}</div></div>`:''}
-    ${p.tel?`<div class="frow"><div class="fkey">Teléfono</div><div class="fval"><a href="tel:${p.tel}" style="color:var(--teal);text-decoration:none;">${p.tel}</a></div></div>`:''}
-    ${p.frec?`<div class="frow"><div class="fkey">Frecuencia</div><div class="fval">${p.frec}</div></div>`:''}`;
-  document.getElementById('fichaDiag').innerHTML=p.diag?`<div class="fs-title">Diagnóstico</div><div class="fb"><span style="background:var(--purple-l);color:var(--purple);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">${p.diag}</span></div>`:'';
+    ${p.fechaNac?`<div class="frow"><div class="fkey">Nacimiento</div><div class="fval">${safeText(fmtF(p.fechaNac))}</div></div>`:''}
+    ${p.rut?`<div class="frow"><div class="fkey">RUT</div><div class="fval">${safeText(p.rut)}</div></div>`:''}
+    ${p.apo?`<div class="frow"><div class="fkey">Apoderado</div><div class="fval">${safeText(p.apo)}</div></div>`:''}
+    ${p.tel?`<div class="frow"><div class="fkey">Teléfono</div><div class="fval"><a href="${safeTelHref(p.tel)}" style="color:var(--teal);text-decoration:none;">${safeText(p.tel)}</a></div></div>`:''}
+    ${p.frec?`<div class="frow"><div class="fkey">Frecuencia</div><div class="fval">${safeText(p.frec)}</div></div>`:''}`;
+  document.getElementById('fichaDiag').innerHTML=p.diag?`<div class="fs-title">Diagnóstico</div><div class="fb"><span style="background:var(--purple-l);color:var(--purple);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">${safeText(p.diag)}</span></div>`:'';
   document.getElementById('fichaAreas').innerHTML=p.areas&&p.areas.length?`<div class="fs-title">Áreas a trabajar</div><div class="fb" style="display:flex;flex-wrap:wrap;gap:5px;">${p.areas.map(a=>`<span class="badge ${BM[a]||''}">${a}</span>`).join('')}</div>`:'';
-  document.getElementById('fichaObs').innerHTML=p.obs?`<div class="fs-title">Observaciones</div><div class="fb" style="font-size:12px;font-weight:600;color:var(--text);line-height:1.6;">${p.obs}</div>`:'';
+  document.getElementById('fichaObs').innerHTML=p.obs?`<div class="fs-title">Observaciones</div><div class="fb" style="font-size:12px;font-weight:600;color:var(--text);line-height:1.6;">${safeText(p.obs)}</div>`:'';
   renderNotas(idx);
   const hist=document.getElementById('fichaHist');
   if(!sesses.length){hist.innerHTML=`<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;font-weight:600;">Sin sesiones aún.</div>`;return;}
   hist.innerHTML=sesses.slice(0,10).map(s=>{
     const ar=(s.areas||[]).map(a=>`<span class="badge ${BM[a]||''}">${a}</span>`).join('');
     const d=new Date(s.date+'T12:00:00');const dStr=DS[d.getDay()]+' '+d.getDate()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
-    return`<div class="hist-card"><div class="hist-top"><span class="hist-date">${dStr}</span><span class="hist-time">${s.inicio}–${s.fin}</span></div>${ar?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px;">${ar}</div>`:''}${s.notas?`<div style="font-size:11px;color:var(--muted);font-style:italic;border-left:3px solid var(--border);padding-left:7px;">${s.notas}</div>`:''}</div>`;
+    return`<div class="hist-card"><div class="hist-top"><span class="hist-date">${safeText(dStr)}</span><span class="hist-time">${safeText(s.inicio)}–${safeText(s.fin)}</span></div>${ar?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px;">${ar}</div>`:''}${s.notas?`<div style="font-size:11px;color:var(--muted);font-style:italic;border-left:3px solid var(--border);padding-left:7px;">${safeText(s.notas)}</div>`:''}</div>`;
   }).join('');
 }
 function renderNotas(idx){
   const notas=pacientes[idx].notas||[];
-  document.getElementById('fichaNotas').innerHTML=notas.length?notas.slice().reverse().map((n,ri)=>{const i=notas.length-1-ri;return`<div class="nota-card"><div class="nota-fecha">📅 ${n.fecha}</div><div class="nota-txt">${n.texto}</div><div style="display:flex;justify-content:flex-end;margin-top:6px;"><button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;font-weight:700;font-family:'Nunito',sans-serif;" onclick="delNota(${idx},${i})">Eliminar</button></div></div>`;}).join(''):`<div style="text-align:center;padding:14px;color:var(--muted);font-size:12px;font-weight:600;">Sin notas aún.</div>`;
+  document.getElementById('fichaNotas').innerHTML=notas.length?notas.slice().reverse().map((n,ri)=>{const i=notas.length-1-ri;return`<div class="nota-card"><div class="nota-fecha">📅 ${safeText(n.fecha)}</div><div class="nota-txt">${safeText(n.texto)}</div><div style="display:flex;justify-content:flex-end;margin-top:6px;"><button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;font-weight:700;font-family:'Nunito',sans-serif;" onclick="delNota(${idx},${i})">Eliminar</button></div></div>`;}).join(''):`<div style="text-align:center;padding:14px;color:var(--muted);font-size:12px;font-weight:600;">Sin notas aún.</div>`;
 }
 function closeFicha(){document.getElementById('fichaView').classList.remove('open');renderPacs();}
 function openAddPac(){
@@ -1689,7 +1717,7 @@ function openEditPac(){
 function savePac(){
   const nombre=document.getElementById('pNom').value.trim();if(!nombre){alert('Ingresa el nombre');return;}
   const areas=[...document.querySelectorAll('#pAreasC .chip.sel')].map(c=>c.textContent);
-  const obj={id:editPacIdx>=0?pacientes[editPacIdx].id:uid('pac'),nombre,apellido:document.getElementById('pApe').value.trim(),fechaNac:document.getElementById('pFn').value,rut:document.getElementById('pRut').value.trim(),diag:document.getElementById('pDiag').value.trim(),apo:document.getElementById('pApo').value.trim(),tel:document.getElementById('pTel').value.trim(),frec:document.getElementById('pFrec').value,obs:document.getElementById('pObs').value.trim(),areas,notas:editPacIdx>=0?(pacientes[editPacIdx].notas||[]):[]};
+  const obj={id:editPacIdx>=0?pacientes[editPacIdx].id:uid('pac'),nombre,apellido:document.getElementById('pApe').value.trim(),fechaNac:document.getElementById('pFn').value,rut:document.getElementById('pRut').value.trim(),diag:document.getElementById('pDiag').value.trim(),apo:document.getElementById('pApo').value.trim(),tel:document.getElementById('pTel').value.trim(),frec:document.getElementById('pFrec').value,obs:document.getElementById('pObs').value.trim(),areas,notas:editPacIdx>=0?(pacientes[editPacIdx].notas||[]):[],archived:editPacIdx>=0?!!pacientes[editPacIdx].archived:false};
   if(editPacIdx>=0){pacientes[editPacIdx]=obj;toast('✅ Ficha actualizada');}else{pacientes.push(obj);toast('✅ Ficha creada');}
   sessions=sessions.map(syncSessionPatients);
   saveSessions();
@@ -1698,6 +1726,23 @@ function savePac(){
 async function deletePac(){
   const pac=pacientes[curPacIdx];
   if(!pac)return;
+  const linkedSessions=getSessPac(pac);
+  if(linkedSessions.length&&!isPatientArchived(pac)){
+    const okArchive=await askConfirm({
+      title:'Archivar usuario',
+      text:'"'+pac.nombre+'" está vinculado a '+linkedSessions.length+' sesión(es). Se archivará para conservar el historial, pero dejará de aparecer al agendar nuevas sesiones.',
+      confirmText:'Archivar usuario',
+      tone:'warn',
+      icon:'👶'
+    });
+    if(!okArchive)return;
+    pacientes[curPacIdx]={...pac,archived:true};
+    savePacs();
+    closeFicha();
+    toast('Usuario archivado');
+    updateStats();
+    return;
+  }
   const ok=await askConfirm({
     title:'Eliminar ficha',
     text:'Se eliminará la ficha de '+pac.nombre+' y dejará de aparecer en la app.',
@@ -1706,7 +1751,18 @@ async function deletePac(){
     icon:'👶'
   });
   if(!ok)return;
-  pacientes.splice(curPacIdx,1);savePacs();closeFicha();toast('🗑 Ficha eliminada');updateStats();
+  const removedId=pac.id;
+  pacientes.splice(curPacIdx,1);
+  sessions=sessions.map(s=>{
+    const nextIds=(s.patientIds||[]).filter(id=>id!==removedId);
+    const nextSnapshots=(s.pacientes||[]).filter(sp=>sp.id!==removedId&&norm(sp.nombre)!==norm(fullName(pac)));
+    return syncSessionPatients({...s,patientIds:nextIds,pacientes:nextSnapshots});
+  });
+  savePacs();
+  saveSessions();
+  closeFicha();
+  toast('🗑 Ficha eliminada');
+  updateStats();
 }
 function openNotaModal(){document.getElementById('notaSub').textContent=pacientes[curPacIdx]?.nombre||'';document.getElementById('notaTxt').value='';document.getElementById('notaModal').classList.add('open');}
 function saveNota(){const txt=document.getElementById('notaTxt').value.trim();if(!txt){alert('Escribe una nota');return;}if(!pacientes[curPacIdx].notas)pacientes[curPacIdx].notas=[];const h=new Date();pacientes[curPacIdx].notas.push({fecha:h.getDate()+'/'+(h.getMonth()+1)+'/'+h.getFullYear(),texto:txt});savePacs();closeM('notaModal');renderFicha(curPacIdx);toast('📝 Nota guardada');}
@@ -1747,13 +1803,13 @@ function renderActs(){
     const mats=parseMaterials(a.materiales);
     return `<div class="act-card ${isActivityArchived(a)?'archived':''}">
       ${isActivityArchived(a)?'<div class="act-status archived">Archivada</div>':''}
-      <div class="act-title">${a.nombre}</div>
-      ${a.descripcion?`<div class="act-desc">${a.descripcion}</div>`:''}
+      <div class="act-title">${safeText(a.nombre)}</div>
+      ${a.descripcion?`<div class="act-desc">${safeText(a.descripcion)}</div>`:''}
       <div class="act-meta">
         <div style="display:flex;flex-wrap:wrap;gap:4px;">${areas||'<span style="font-size:10px;font-weight:700;color:var(--muted);">Sin áreas asignadas</span>'}</div>
       </div>
-      ${a.materiales?`<div class="act-mats">📦 ${a.materiales}</div>`:''}
-      ${mats.length?`<div class="act-mat-list">${mats.map(m=>`<span class="act-mat-chip">${m}</span>`).join('')}</div>`:`<div class="act-mats">Sin materiales vinculados</div>`}
+      ${a.materiales?`<div class="act-mats">📦 ${safeText(a.materiales)}</div>`:''}
+      ${mats.length?`<div class="act-mat-list">${mats.map(m=>`<span class="act-mat-chip">${safeText(m)}</span>`).join('')}</div>`:`<div class="act-mats">Sin materiales vinculados</div>`}
       <div class="act-actions">
         <button class="act-btn" onclick="openEditAct(${idx})">✏️ Editar</button>
         <button class="act-btn del" onclick="deleteAct(${idx})">${isActivityArchived(a)?'🗑 Eliminar definitivo':'🗑 Eliminar'}</button>
@@ -1793,7 +1849,7 @@ function renderActMaterialDraft(){
   const hidden=document.getElementById('aMats');
   if(hidden)hidden.value=actMaterialDraft.join(', ');
   if(!list)return;
-  list.innerHTML=actMaterialDraft.length?actMaterialDraft.map((m,i)=>`<span class="act-mat-chip">${m}<button type="button" onclick="removeActMaterial(${i})">x</button></span>`).join(''):`<span style="font-size:11px;font-weight:700;color:var(--muted);">Sin materiales agregados.</span>`;
+  list.innerHTML=actMaterialDraft.length?actMaterialDraft.map((m,i)=>`<span class="act-mat-chip">${safeText(m)}<button type="button" onclick="removeActMaterial(${i})">x</button></span>`).join(''):`<span style="font-size:11px;font-weight:700;color:var(--muted);">Sin materiales agregados.</span>`;
 }
 function addActMaterial(){
   const inp=document.getElementById('aMatInput');
@@ -1930,27 +1986,6 @@ function renderMatBiblioteca(){
   const cont=document.getElementById('matBiblioteca');
   if(!cont)return;
   const q=(document.getElementById('matLibSearch')?.value||'').toLowerCase();
-  const items=getAllKnownMaterials().filter(name=>!q||name.toLowerCase().includes(q));
-  let h=`<div class="lib-search"><input class="extra-inp" id="matLibSearch" placeholder="Buscar material..." value="${(document.getElementById('matLibSearch')?.value||'').replace(/"/g,'&quot;')}"><input class="extra-inp" id="matLibInp" placeholder="Nuevo material..."><button class="btn-extra" onclick="addMaterialPreference()">＋</button></div>`;
-  if(!items.length){
-    h+=`<div class="empty" style="padding:28px 16px;"><div class="ico">📦</div><p>No hay materiales registrados todavía.</p></div>`;
-    cont.innerHTML=h;
-    document.getElementById('matLibSearch')?.addEventListener('input',renderMatBiblioteca);
-    return;
-  }
-  h+=items.map(name=>{
-    const pref=getMaterialPref(name);
-    const usage=sessions.filter(s=>parseMaterials(s.materiales).some(m=>norm(m)===norm(name))).length;
-    return `<div class="lib-card"><div class="lib-name">${pref.name||name}</div><div class="lib-sub">${usage} sesiones lo usan</div><div class="mat-meta-row"><button class="mat-pill toggle ${pref.frequent?'freq':''}" onclick="toggleMaterialFrequent('${escJs(name)}')">${pref.frequent?'Frecuente':'Marcar frecuente'}</button><button class="mat-pill toggle ${pref.inStock===false?'stock-no':'stock-ok'}" onclick="toggleMaterialStock('${escJs(name)}')">${pref.inStock===false?'Me falta':'Lo tengo'}</button></div></div>`;
-  }).join('');
-  cont.innerHTML=h;
-  document.getElementById('matLibSearch')?.addEventListener('input',renderMatBiblioteca);
-  document.getElementById('matLibInp')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addMaterialPreference();}});
-}
-function renderMatBiblioteca(){
-  const cont=document.getElementById('matBiblioteca');
-  if(!cont)return;
-  const q=(document.getElementById('matLibSearch')?.value||'').toLowerCase();
   const acts=actividades
     .map(a=>({...a,mats:parseMaterials(a.materiales)}))
     .filter(a=>!q||(a.nombre+' '+(a.descripcion||'')+' '+a.mats.join(' ')).toLowerCase().includes(q));
@@ -1972,7 +2007,7 @@ function renderMatBiblioteca(){
   }
   h+=acts.map(a=>{
     const idx=actividades.findIndex(act=>act.id===a.id);
-    return `<div class="mat-activity-card"><div class="mat-activity-head"><div><div class="mat-activity-title">${a.nombre}</div>${a.descripcion?`<div class="lib-sub">${a.descripcion}</div>`:''}</div><span class="mat-activity-count">${a.mats.length} mat.</span></div>${a.mats.length?`<div class="act-mat-list">${a.mats.map(m=>`<span class="act-mat-chip">${m}</span>`).join('')}</div>${a.mats.map(m=>`<div class="mat-meta-row"><div style="flex:1;min-width:0;font-size:11px;font-weight:800;color:var(--text);">${m}</div>${renderMaterialPills(m)}</div>`).join('')}`:`<div class="mat-activity-empty">Esta actividad aun no tiene materiales vinculados.</div>`}<div class="act-actions"><button class="act-btn" onclick="openEditAct(${idx})">Editar actividad</button></div></div>`;
+    return `<div class="mat-activity-card"><div class="mat-activity-head"><div><div class="mat-activity-title">${safeText(a.nombre)}</div>${a.descripcion?`<div class="lib-sub">${safeText(a.descripcion)}</div>`:''}</div><span class="mat-activity-count">${a.mats.length} mat.</span></div>${a.mats.length?`<div class="act-mat-list">${a.mats.map(m=>`<span class="act-mat-chip">${safeText(m)}</span>`).join('')}</div>${a.mats.map(m=>`<div class="mat-meta-row"><div style="flex:1;min-width:0;font-size:11px;font-weight:800;color:var(--text);">${safeText(m)}</div>${renderMaterialPills(m)}</div>`).join('')}`:`<div class="mat-activity-empty">Esta actividad aun no tiene materiales vinculados.</div>`}<div class="act-actions"><button class="act-btn" onclick="openEditAct(${idx})">Editar actividad</button></div></div>`;
   }).join('');
   cont.innerHTML=h;
   document.getElementById('matLibSearch')?.addEventListener('input',renderMatBiblioteca);
