@@ -115,6 +115,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .status-btn.pending.active{background:var(--amber-l);border-color:var(--amber);color:var(--amber);}
 .status-btn.done.active{background:var(--teal-l);border-color:var(--teal);color:var(--teal-d);}
 .status-btn.missed.active{background:var(--coral-l);border-color:var(--coral);color:var(--coral-d);}
+.status-btn.reschedule{border-color:#4B7BFF;color:#8FB0FF;background:rgba(39,66,140,0.18);}
+.status-btn.reschedule:hover{border-color:#6F98FF;color:#C5D6FF;background:rgba(54,84,168,0.26);}
 .report-box{margin-top:8px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;}
 .report-lbl{font-size:10px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;}
 .report-txt{font-size:11px;font-weight:600;color:var(--text);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;}
@@ -780,7 +782,7 @@ try{extraMats=JSON.parse(localStorage.getItem('fk_v5_extra')||'{}');}catch(e){}
 try{materialPrefs=JSON.parse(localStorage.getItem('fk_v5_matprefs')||'{}');}catch(e){}
 
 let curDate=new Date(),selDate=new Date(),editSessIdx=-1,editPacIdx=-1,curPacIdx=-1;
-let clipboard=null,pmDate=new Date(),pmSelDates=[],selectedSessPacs=[];
+let clipboard=null,pmDate=new Date(),pmSelDates=[],pmMode='paste',rescheduleSessIdx=-1,selectedSessPacs=[];
 let selectedSessActs=[];
 let actMaterialDraft=[];
 let showArchivedActivities=false;
@@ -1239,6 +1241,7 @@ function renderSessions(){
         <button class="status-btn pending ${s.estado==='pendiente'?'active':''}" onclick="markSessionPending(${idx})">Pendiente</button>
         <button class="status-btn done ${done?'active':''}" onclick="openReportModal(${idx})">${done?'Editar informe':'Realizada'}</button>
         <button class="status-btn missed ${missed?'active':''}" onclick="markSessionNotDone(${idx})">No realizada</button>
+        <button class="status-btn reschedule" onclick="openRescheduleModal(${idx})">Reagendar</button>
       </div>
       ${done&&s.informe?renderReportContent(s.informe,idx):''}
       <div class="card-acts">
@@ -1403,6 +1406,21 @@ function markSessionNotDone(idx){
   renderSessions();
   toast('Sesión marcada como no realizada');
 }
+function openRescheduleModal(idx){
+  const s=sessions[idx];
+  if(!s)return;
+  pmMode='reschedule';
+  rescheduleSessIdx=idx;
+  pmDate=new Date(s.date+'T12:00:00');
+  pmSelDates=[new Date(s.date+'T12:00:00')];
+  const names=getSessionPatients(s).map(p=>p.nombre).join(', ')||'Sesión';
+  document.getElementById('pasteSub').textContent=`Reagendando: ${names} (${s.inicio}–${s.fin})`;
+  document.getElementById('pasteTgt').textContent='📅 '+fmtDate(pmSelDates[0]);
+  document.getElementById('btnConfPaste').textContent='Reagendar ✓';
+  document.getElementById('btnConfPaste').disabled=false;
+  renderPmCal();
+  document.getElementById('pasteModal').classList.add('open');
+}
 function openReportModal(idx){
   reportSessIdx=idx;
   const s=sessions[idx];
@@ -1509,9 +1527,12 @@ function copySess(idx){
 function clearClip(){clipboard=null;document.getElementById('clipBanner').classList.remove('show');renderSessions();}
 function openPasteModal(){
   if(!clipboard)return;
+  pmMode='paste';
+  rescheduleSessIdx=-1;
   pmDate=new Date();pmSelDates=[];
   const s=clipboard.data;
   document.getElementById('pasteSub').textContent=`Pegando: ${getSessionPatients(s).map(p=>p.nombre).join(', ')} (${s.inicio}–${s.fin})`;
+  document.getElementById('btnConfPaste').textContent='Pegar aquí ✓';
   document.getElementById('btnConfPaste').disabled=true;
   document.getElementById('pasteTgt').textContent='Selecciona uno o más días';
   renderPmCal();document.getElementById('pasteModal').classList.add('open');
@@ -1528,6 +1549,13 @@ function renderPmCal(){
 }
 function pmSel(y,m,d){
   const picked=new Date(y,m,d),key=dk(picked);
+  if(pmMode==='reschedule'){
+    pmSelDates=[picked];
+    renderPmCal();
+    document.getElementById('pasteTgt').textContent='📅 '+fmtDate(picked);
+    document.getElementById('btnConfPaste').disabled=false;
+    return;
+  }
   const idx=pmSelDates.findIndex(date=>dk(date)===key);
   if(idx>=0)pmSelDates.splice(idx,1);else pmSelDates.push(picked);
   pmSelDates.sort((a,b)=>a-b);
@@ -1536,6 +1564,16 @@ function pmSel(y,m,d){
   document.getElementById('btnConfPaste').disabled=!pmSelDates.length;
 }
 function confirmPaste(){
+  if(pmMode==='reschedule'){
+    if(rescheduleSessIdx<0||!pmSelDates.length)return;
+    sessions[rescheduleSessIdx].date=dk(pmSelDates[0]);
+    saveSessions();
+    closeM('pasteModal');
+    selDate=new Date(pmSelDates[0]);
+    renderCal();renderSessions();updateStats();
+    toast('✅ Sesión reagendada');
+    return;
+  }
   if(!clipboard||!pmSelDates.length)return;
   pmSelDates.forEach(date=>{
     const n=syncSessionPatients(dc(clipboard.data));
@@ -2030,6 +2068,7 @@ function askConfirm({title='Confirmar acción',text='¿Seguro que quieres contin
 function closeM(id){
   document.getElementById(id).classList.remove('open');
   if(id==='reportModal')reportSessIdx=-1;
+  if(id==='pasteModal'){pmMode='paste';rescheduleSessIdx=-1;pmSelDates=[];}
   if(id==='confirmModal')resolveConfirm(false);
 }
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeM(o.id);}));
