@@ -808,7 +808,6 @@ let pendingRemoteSync=localStorage.getItem(PENDING_SYNC_KEY)==='1';
 let restoredSessionThisLaunch=false;
 let sessionRestoreMessage='';
 let remoteActivitiesColumnSupported='unknown';
-let lastRemoteUpdatedAt='';
 const SESSION_COLOR_OPTIONS=[
   {id:'cielo',color:'#8FB8FF'},
   {id:'lavanda',color:'#B7A1FF'},
@@ -846,7 +845,6 @@ function persistLocalState(){
 function clearLocalUserState(){
   sessions=[];pacientes=[];actividades=[];compraList=[];checkedMats={};extraMats={};materialPrefs={};
   clipboard=null;selectedSessPacs=[];editSessIdx=-1;editPacIdx=-1;curPacIdx=-1;editActIdx=-1;reportSessIdx=-1;
-  lastRemoteUpdatedAt='';
   setPendingSync(false);
   ['fk_v5_sess','fk_v5_pacs','fk_v5_acts','fk_v5_compra','fk_v5_chk','fk_v5_extra','fk_v5_matprefs'].forEach(k=>{
     try{localStorage.removeItem(k);}catch(e){}
@@ -950,7 +948,6 @@ function applyRemoteState(state){
   checkedMats=dc(state?.checked_mats||{});
   materialPrefs=dc(remoteMaterialPrefs);
   extraMats=rawExtra;
-  lastRemoteUpdatedAt=state?.updated_at||'';
   persistLocalState();
   isHydratingRemote=false;
 }
@@ -1129,22 +1126,6 @@ async function upsertRemoteState(showToast){
     setSyncNote('No se pudo conectar con Supabase. Cambios pendientes de sincronizar.');
     return false;
   }
-  if(lastRemoteUpdatedAt){
-    const remoteCheck=await fetchRemoteStateRow();
-    if(remoteCheck?.error){
-      setPendingSync(true);
-      setSyncNote('No se pudo validar la nube antes de sincronizar. Cambios pendientes.');
-      if(showToast)toast('No se pudo sincronizar');
-      return false;
-    }
-    const remoteUpdatedAt=remoteCheck?.data?.updated_at||'';
-    if(remoteUpdatedAt&&remoteUpdatedAt!==lastRemoteUpdatedAt){
-      setPendingSync(true);
-      setSyncNote('La nube cambió desde otro dispositivo. Revisa antes de sobrescribir.');
-      if(showToast)toast('Hay una versión más nueva en la nube');
-      return false;
-    }
-  }
   let payload=buildRemotePayload(false);
   let {error}=await supabase.from('app_state').upsert(payload);
   if(error&&isActivitiesColumnError(error)){
@@ -1161,7 +1142,6 @@ async function upsertRemoteState(showToast){
     return false;
   }
   setPendingSync(false);
-  lastRemoteUpdatedAt=payload.updated_at;
   setSyncNote('Guardado automatico en la nube');
   showSaveHint('Sincronizado');
   if(showToast)toast('☁️ Datos sincronizados');
