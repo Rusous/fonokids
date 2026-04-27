@@ -61,23 +61,22 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .month-label{font-size:13px;font-weight:700;min-width:88px;text-align:center;}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
 .day-h{text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:3px 0;}
-.day-c{aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:12px;font-weight:600;color:var(--text);position:relative;transition:all 0.12s;}
+.day-c{aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:12px;font-weight:700;color:var(--text);position:relative;transition:all 0.12s;background:transparent;border:1.5px solid transparent;overflow:hidden;}
 .day-c:hover{background:var(--surface2);}
 .day-c.om{color:var(--muted);opacity:0.35;}
 .day-c.today{background:var(--coral);color:#fff;font-weight:800;}
-.day-c.hasSess::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--teal);}
-.day-c.today.hasSess::after{background:#fff;}
+.day-c.hasSess{border-color:rgba(255,255,255,0.08);}
+.day-c::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:var(--day-accent, transparent);}
+.day-c::after{content:'';position:absolute;left:0;right:0;bottom:0;height:6px;background:var(--day-status, transparent);}
 .day-c.sel:not(.today){background:var(--surface2);border:2px solid var(--coral);}
-.day-c.all-done{background:var(--green-l);border:1.5px solid var(--green);color:var(--green);font-weight:900;}
-.day-c.has-pending{background:var(--amber-l);border:1.5px solid var(--amber);color:var(--amber);font-weight:900;}
-.day-c.has-missed{background:var(--coral-l);border:1.5px solid var(--coral);color:var(--coral-d);font-weight:900;}
-.day-c.mixed-status{background:linear-gradient(135deg,var(--amber-l) 0 50%,var(--coral-l) 50%);border:1.5px solid var(--amber);color:var(--text);font-weight:900;}
-.day-c.all-done::after{background:var(--green);}
-.day-c.has-pending::after{background:var(--amber);}
-.day-c.has-missed::after{background:var(--coral);}
-.day-c.mixed-status::after{width:14px;height:4px;border-radius:999px;background:linear-gradient(90deg,var(--amber) 0 50%,var(--coral) 50%);}
-.day-c.reagendado-mark::before{content:'R';position:absolute;top:3px;right:4px;font-size:9px;font-weight:900;line-height:1;color:#9DB8FF;}
+.day-c.all-done{--day-status:var(--green);font-weight:900;}
+.day-c.has-pending{--day-status:var(--amber);font-weight:900;}
+.day-c.has-missed{--day-status:var(--coral);font-weight:900;}
+.day-c.mixed-status{--day-status:linear-gradient(90deg,var(--amber) 0 50%,var(--coral) 50%);font-weight:900;}
 .day-c.sel{box-shadow:0 0 0 2px rgba(255,255,255,0.18) inset;}
+.day-num{position:relative;z-index:1;}
+.day-r{position:absolute;top:9px;right:5px;font-size:9px;font-weight:900;line-height:1;color:#9DB8FF;z-index:1;}
+.day-c.today .day-r{color:#fff;}
 
 /* SESSIONS */
 .sessions-wrap{padding:0 16px 132px;}
@@ -120,6 +119,11 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);max-
 .status-btn.missed.active{background:var(--coral-l);border-color:var(--coral);color:var(--coral-d);}
 .status-btn.reschedule{border-color:#4B7BFF;color:#8FB0FF;background:rgba(39,66,140,0.18);}
 .status-btn.reschedule:hover{border-color:#6F98FF;color:#C5D6FF;background:rgba(54,84,168,0.26);}
+.color-palette{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
+.color-dot-btn{width:100%;aspect-ratio:1;border-radius:12px;border:2px solid transparent;background:var(--pick);cursor:pointer;box-shadow:0 0 0 1px rgba(255,255,255,0.08) inset;transition:transform 0.12s,border-color 0.12s,box-shadow 0.12s;}
+.color-dot-btn:hover{transform:translateY(-1px);}
+.color-dot-btn.active{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,0.18),0 0 0 1px rgba(0,0,0,0.22) inset;}
+.color-palette-hint{margin-top:7px;font-size:10px;font-weight:700;color:var(--muted);}
 .report-box{margin-top:8px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;}
 .report-lbl{font-size:10px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;}
 .report-txt{font-size:11px;font-weight:600;color:var(--text);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;}
@@ -608,6 +612,11 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
       <div id="actSelectorList"></div>
       <div class="hint">Puedes seleccionar varias actividades. Sus áreas y materiales se combinan automáticamente.</div>
     </div>
+    <div class="fg">
+      <label class="fl">Color de la sesión</label>
+      <div class="color-palette" id="sessColorPalette"></div>
+      <div class="color-palette-hint">Este color se mostrará arriba del día en el calendario.</div>
+    </div>
     <div class="fg"><label class="fl">Dirección</label><input class="fi" id="sDir" placeholder="Ej: Av. Siempre Viva 123, Ñuñoa"></div>
     <div class="fg"><label class="fl">Materiales</label><input class="fi" id="sMats" placeholder="Ej: tarjetas, espejo, burbujas (separar con comas)"><div class="mini-row"><button type="button" class="mini-btn" onclick="fillSessionMaterialsFromActivities()">Auto desde actividades</button></div><div id="matSuggestRow"></div></div>
     <div class="fg"><label class="fl">Notas</label><input class="fi" id="sNotas" placeholder="Objetivos, observaciones..."></div>
@@ -800,6 +809,16 @@ let restoredSessionThisLaunch=false;
 let sessionRestoreMessage='';
 let remoteActivitiesColumnSupported='unknown';
 let lastRemoteUpdatedAt='';
+const SESSION_COLOR_OPTIONS=[
+  {id:'azul',color:'#5B8CFF'},
+  {id:'indigo',color:'#7A6CFF'},
+  {id:'lila',color:'#B08CFF'},
+  {id:'rosa',color:'#FF84C1'},
+  {id:'cian',color:'#63D6FF'},
+  {id:'violeta',color:'#8E6BFF'}
+];
+const DEFAULT_SESSION_COLOR_ID='azul';
+let selectedSessionColorId=DEFAULT_SESSION_COLOR_ID;
 function loadSupabaseConfig(){
   let stored={};
   try{stored=JSON.parse(localStorage.getItem('fk_supabase_config')||'{}');}catch(e){}
@@ -947,6 +966,7 @@ function syncSessionPatients(s){
   s.informe=s.informe||'';
   s.direccion=(s.direccion||'').trim();
   s.reagendadaDesde=s.reagendadaDesde||'';
+  s.colorId=SESSION_COLOR_OPTIONS.some(opt=>opt.id===s.colorId)?s.colorId:DEFAULT_SESSION_COLOR_ID;
   const legacyIds=(Array.isArray(s.activityIds)?s.activityIds:[s.activityId].filter(Boolean)).filter(Boolean);
   const legacyNames=(Array.isArray(s.activityNames)?s.activityNames:[s.activityName].filter(Boolean)).filter(Boolean);
   s.activityIds=[...new Set(legacyIds)];
@@ -1233,8 +1253,8 @@ function renderCal(){
   const first=new Date(y,m,1),last=new Date(y,m+1,0),sd=first.getDay();
   const sd2=new Set(sessions.map(s=>s.date)),tk=dk(new Date()),sk=dk(selDate);
   let h='';DS.forEach(d=>{h+=`<div class="day-h">${d}</div>`;});
-  for(let i=0;i<sd;i++){const d=new Date(y,m,1-sd+i),k=dk(d);const cls=['om',sd2.has(k)?'hasSess':'',getDayStatusClass(k),hasRescheduledDay(k)?'reagendado-mark':''].filter(Boolean).join(' ');h+=`<div class="day-c ${cls}" onclick="selDay(${d.getFullYear()},${d.getMonth()},${d.getDate()})">${d.getDate()}</div>`;}
-  for(let d=1;d<=last.getDate();d++){const dt=new Date(y,m,d),k=dk(dt);const cls=[sd2.has(k)?'hasSess':'',getDayStatusClass(k),hasRescheduledDay(k)?'reagendado-mark':'',k===tk?'today':k===sk?'sel':''].filter(Boolean).join(' ');h+=`<div class="day-c ${cls}" onclick="selDay(${y},${m},${d})">${d}</div>`;}
+  for(let i=0;i<sd;i++){const d=new Date(y,m,1-sd+i),k=dk(d);const cls=['om',sd2.has(k)?'hasSess':'',getDayStatusClass(k),k===sk?'sel':''].filter(Boolean).join(' ');const accent=getDayAccentStyle(k);h+=`<div class="day-c ${cls}" style="--day-accent:${accent||'transparent'};" onclick="selDay(${d.getFullYear()},${d.getMonth()},${d.getDate()})"><span class="day-num">${d.getDate()}</span>${hasRescheduledDay(k)?'<span class="day-r">R</span>':''}</div>`;}
+  for(let d=1;d<=last.getDate();d++){const dt=new Date(y,m,d),k=dk(dt);const cls=[sd2.has(k)?'hasSess':'',getDayStatusClass(k),k===tk?'today':k===sk?'sel':''].filter(Boolean).join(' ');const accent=getDayAccentStyle(k);h+=`<div class="day-c ${cls}" style="--day-accent:${accent||'transparent'};" onclick="selDay(${y},${m},${d})"><span class="day-num">${d}</span>${hasRescheduledDay(k)?'<span class="day-r">R</span>':''}</div>`;}
   document.getElementById('calGrid').innerHTML=h;
 }
 function selDay(y,m,d){selDate=new Date(y,m,d);renderCal();renderSessions();}
@@ -1385,10 +1405,12 @@ function addSuggestedMaterial(name){
 function openAddSess(){
   editSessIdx=-1;selectedSessPacs=[];selectedSessActs=[];
   materialsTouchedManually=false;
+  selectedSessionColorId=DEFAULT_SESSION_COLOR_ID;
   document.getElementById('sessTitleM').textContent='Nueva sesión 🎉';
   document.getElementById('sessSubM').textContent=fmtDate(selDate);
   document.getElementById('sInicio').value='09:00';document.getElementById('sFin').value='09:45';
   document.getElementById('sDir').value='';document.getElementById('sMats').value='';document.getElementById('sNotas').value='';
+  renderSessionColorPalette();
   renderActivitySelector();
   renderMaterialSuggestions();
   document.querySelectorAll('#sessAreaChips .chip').forEach(c=>c.classList.remove('sel'));
@@ -1399,10 +1421,12 @@ function openEditSess(idx){
   selectedSessPacs=(s.patientIds||[]).map(id=>pacientes.findIndex(p=>p.id===id)).filter(i=>i>=0);
   selectedSessActs=Array.isArray(s.activityIds)&&s.activityIds.length?[...s.activityIds]:(s.activityId?[s.activityId]:[]);
   materialsTouchedManually=true;
+  selectedSessionColorId=s.colorId||DEFAULT_SESSION_COLOR_ID;
   document.getElementById('sessTitleM').textContent='Editar sesión ✏️';
   document.getElementById('sessSubM').textContent=fmtDate(selDate);
   document.getElementById('sInicio').value=s.inicio;document.getElementById('sFin').value=s.fin;
   document.getElementById('sDir').value=s.direccion||'';document.getElementById('sMats').value=s.materiales||'';document.getElementById('sNotas').value=s.notas||'';
+  renderSessionColorPalette();
   renderActivitySelector();
   renderMaterialSuggestions();
   document.querySelectorAll('#sessAreaChips .chip').forEach(c=>{c.classList.toggle('sel',(s.areas||[]).includes(c.textContent));});
@@ -1426,7 +1450,7 @@ function saveSess(){
   const activityNames=activityIds.map(id=>actividades.find(a=>a.id===id)?.nombre).filter(Boolean);
   const materialNames=parseMaterials(document.getElementById('sMats').value);
   upsertMaterialPrefs(materialNames);
-  const obj=syncSessionPatients({id:prev?prev.id:uid('sess'),date:dk(selDate),inicio,fin,patientIds,activityIds,activityNames,activityId:activityIds[0]||'',activityName:activityNames.join(', '),areas,direccion:document.getElementById('sDir').value.trim(),materiales:materialNames.join(', '),notas:document.getElementById('sNotas').value,estado:prev?.estado||'pendiente',informe:prev?.informe||''});
+  const obj=syncSessionPatients({id:prev?prev.id:uid('sess'),date:dk(selDate),inicio,fin,patientIds,activityIds,activityNames,activityId:activityIds[0]||'',activityName:activityNames.join(', '),areas,direccion:document.getElementById('sDir').value.trim(),materiales:materialNames.join(', '),notas:document.getElementById('sNotas').value,colorId:selectedSessionColorId,estado:prev?.estado||'pendiente',informe:prev?.informe||''});
   if(editSessIdx>=0){sessions[editSessIdx]=obj;toast('✅ Sesión actualizada');}else{sessions.push(obj);toast('✅ Sesión guardada');}
   saveSessions();closeM('sessModal');renderCal();renderSessions();updateStats();
 }
@@ -1526,6 +1550,25 @@ function escapeHtml(txt=''){
 }
 function safeText(txt=''){return escapeHtml(String(txt||''));}
 function safeTelHref(txt=''){return 'tel:'+String(txt||'').replace(/[^\d+]/g,'');}
+function getSessionColorValue(colorId){
+  return SESSION_COLOR_OPTIONS.find(opt=>opt.id===colorId)?.color||SESSION_COLOR_OPTIONS.find(opt=>opt.id===DEFAULT_SESSION_COLOR_ID)?.color||'#5B8CFF';
+}
+function renderSessionColorPalette(){
+  const wrap=document.getElementById('sessColorPalette');
+  if(!wrap)return;
+  wrap.innerHTML=SESSION_COLOR_OPTIONS.map(opt=>`<button type="button" class="color-dot-btn ${selectedSessionColorId===opt.id?'active':''}" style="--pick:${opt.color};" onclick="setSessionColor('${opt.id}')" aria-label="Color ${opt.id}"></button>`).join('');
+}
+function setSessionColor(colorId){
+  selectedSessionColorId=colorId;
+  renderSessionColorPalette();
+}
+function getDayAccentStyle(dateKey){
+  const colors=[...new Set(sessions.filter(s=>s.date===dateKey).map(s=>getSessionColorValue(s.colorId||DEFAULT_SESSION_COLOR_ID)).filter(Boolean))];
+  if(!colors.length)return '';
+  if(colors.length===1)return colors[0];
+  const step=100/colors.length;
+  return `linear-gradient(90deg,${colors.map((color,idx)=>`${color} ${Math.round(idx*step)}% ${Math.round((idx+1)*step)}%`).join(',')})`;
+}
 function renderReportContent(text,idx){
   const safe=escapeHtml(text||'');
   if(!text)return '';
