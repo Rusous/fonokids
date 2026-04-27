@@ -1511,13 +1511,9 @@ function copyText(txt,okMsg){
 function copySessionReport(idx){
   const s=sessions[idx];
   if(!s||!s.informe){toast('No hay informe para copiar');return;}
-  const pacNames=getSessionPatients(s).map(p=>p.nombre).join(', ')||'Sin usuarios';
-  const activityNames=(Array.isArray(s.activityNames)&&s.activityNames.length?s.activityNames:(s.activityName?[s.activityName]:[])).filter(Boolean);
-  const activityLabel=activityNames.length?activityNames.join(', '):'Sin actividad';
-  const direccion=s.direccion||'Sin dirección';
   const d=new Date(s.date+'T12:00:00');
   const fecha=`${DL[d.getDay()]} ${d.getDate()} de ${MO[d.getMonth()]} de ${d.getFullYear()}`;
-  const txt=`Informe de sesión\n\nFecha: ${fecha}\nHora: ${s.inicio}–${s.fin}\nUsuarios: ${pacNames}\nActividades: ${activityLabel}\nDirección: ${direccion}\n\nInforme: ${s.informe}`;
+  const txt=`Informe de sesión\n\nFecha: ${fecha}\n\nInforme: ${s.informe}`;
   copyText(txt,'📋 Informe copiado');
 }
 function escapeHtml(txt=''){
